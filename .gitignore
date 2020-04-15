@@ -1,0 +1,7 @@
+tsconfig.tsbuildinfo
+node_modules
+lib
+.env
+.envrc
+config.yml
+yarn-error.log

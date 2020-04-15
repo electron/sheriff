@@ -1,0 +1,82 @@
+{
+  "name": "Electron Sheriff",
+  "description": "Controls org permissions and monitor for suspicious activity",
+  "keywords": [
+    "github",
+    "slack",
+    "gsuite",
+    "permissions",
+    "alerting"
+  ],
+  "website": "https://github.com/electron/sheriff",
+  "repository": "https://github.com/electron/sheriff",
+  "logo": "https://avatars.slack-edge.com/2019-11-21/844347353604_500f5a5483db67de7160_512.png",
+  "success_url": "https://github.com/electron/sheriff",
+  "scripts": {},
+  "env": {
+    "GITHUB_TOKEN": {
+      "description": "A personal access token for an organization owner with the `repo` scope",
+      "required": true
+    },
+    "GITHUB_WEBHOOK_SECRET": {
+      "description": "The secret for the org-wide webhook",
+      "required": true
+    },
+    "PERMISSIONS_FILE_ORG": {
+      "description": "The name of the GitHub org where you put the `.permissions` repository",
+      "required": true
+    },
+    "SHERIFF_HOST_URL": {
+      "description": "The fully qualified URL for your deployed app",
+      "required": true
+    },
+    "SLACK_TOKEN": {
+      "description": "The token for your Slack App",
+      "required": true
+    },
+    "SLACK_WEBHOOK_URL": {
+      "description": "The webhook URL for your Slack App",
+      "required": true
+    },
+    "GSUITE_CREDENTIALS": {
+      "description": "GSuite credentials",
+      "required": false
+    },
+    "GSUITE_TOKEN": {
+      "description": "GSuite authentication token",
+      "required": false
+    },
+    "SHERIFF_GSUITE_DOMAIN": {
+      "description": "The primary domain of your GSuite account",
+      "required": false
+    },
+    "SHERIFF_IMPORTANT_BRANCH": {
+      "description": "A regular expression to match important branches you want to monitor for deletion",
+      "required": false
+    },
+    "SHERIFF_PLUGINS": {
+      "description": "A comma separated list of plugins to enable.  Possible plugins are `gsuite` and `slack`",
+      "required": false
+    },
+    "SHERIFF_SLACK_DOMAIN": {
+      "description": "The \"domain\" part of `{domain}.slack.com` for your Slack instance",
+      "required": false
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1
+    }
+  },
+  "addons": [
+    {
+      "plan": "scheduler:standard"
+    }
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "stack": "heroku-18"
+}

@@ -1,0 +1,36 @@
+{
+  "name": "@electron/sheriff",
+  "version": "1.0.0",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "dev": "cross-env AUTO_TUNNEL_NGROK=e-sheriff yarn start",
+    "prettier:write": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "start": "node lib/index.js"
+  },
+  "author": "Samuel Attard",
+  "dependencies": {
+    "@octokit/rest": "^16.33.0",
+    "@octokit/webhooks": "^6.3.2",
+    "@slack/web-api": "^5.8.0",
+    "@slack/webhook": "^5.0.0",
+    "chalk": "^2.4.2",
+    "dotenv-safe": "^6.1.0",
+    "express": "^4.17.1",
+    "fs-extra": "^8.0.1",
+    "googleapis": "39",
+    "joi": "^14.3.1",
+    "js-yaml": "^3.13.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.0",
+    "@types/fs-extra": "^7.0.0",
+    "@types/joi": "^14.3.3",
+    "@types/js-yaml": "^3.12.1",
+    "cross-env": "^5.2.0",
+    "ngrok": "^3.1.1",
+    "prettier": "^1.18.2",
+    "typescript": "^3.5.2"
+  }
+}
