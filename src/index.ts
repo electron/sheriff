@@ -20,7 +20,8 @@ webhooks.on(
   }),
 );
 
-const importantBranchMatcher = () => process.env.SHERIFF_IMPORTANT_BRANCH ? new RegExp('(^[0-9]+-[0-9]+-x$)|(^[0-9]+-x-y$)') : null;
+const importantBranchMatcher = () =>
+  process.env.SHERIFF_IMPORTANT_BRANCH ? new RegExp('(^[0-9]+-[0-9]+-x$)|(^[0-9]+-x-y$)') : null;
 
 webhooks.on(
   'delete',
@@ -147,76 +148,111 @@ webhooks.on(
   }),
 );
 
-webhooks.on('organization.member_invited', hook(async event => {
-  await MessageBuilder.create()
-    .addBlock(createMessageBlock(`A new member was just invited to the "${event.payload.organization.login}" organization`))
-    .addUser(event.payload.membership.user, 'Invited Member')
-    .addBlame(event.payload.sender)
-    .addSeverity('normal')
-    .send()
-}));
+webhooks.on(
+  'organization.member_invited',
+  hook(async event => {
+    await MessageBuilder.create()
+      .addBlock(
+        createMessageBlock(
+          `A new member was just invited to the "${event.payload.organization.login}" organization`,
+        ),
+      )
+      .addUser(event.payload.membership.user, 'Invited Member')
+      .addBlame(event.payload.sender)
+      .addSeverity('normal')
+      .send();
+  }),
+);
 
-webhooks.on('organization.member_added', hook(async event => {
-  await MessageBuilder.create()
-    .addBlock(createMessageBlock(`A new member was just added to the "${event.payload.organization.login}" organization`))
-    .addUser(event.payload.membership.user, 'New Member')
-    .addBlame(event.payload.sender)
-    .addSeverity('normal')
-    .send()
-}));
+webhooks.on(
+  'organization.member_added',
+  hook(async event => {
+    await MessageBuilder.create()
+      .addBlock(
+        createMessageBlock(
+          `A new member was just added to the "${event.payload.organization.login}" organization`,
+        ),
+      )
+      .addUser(event.payload.membership.user, 'New Member')
+      .addBlame(event.payload.sender)
+      .addSeverity('normal')
+      .send();
+  }),
+);
 
-webhooks.on('organization.member_removed', hook(async event => {
-  await MessageBuilder.create()
-    .addBlock(createMessageBlock(`A member was just removed from the "${event.payload.organization.login}" organization`))
-    .addUser(event.payload.membership.user, 'Removed Member')
-    .addBlame(event.payload.sender)
-    .addSeverity('normal')
-    .send()
-}));
+webhooks.on(
+  'organization.member_removed',
+  hook(async event => {
+    await MessageBuilder.create()
+      .addBlock(
+        createMessageBlock(
+          `A member was just removed from the "${event.payload.organization.login}" organization`,
+        ),
+      )
+      .addUser(event.payload.membership.user, 'Removed Member')
+      .addBlame(event.payload.sender)
+      .addSeverity('normal')
+      .send();
+  }),
+);
 
-webhooks.on('organization.renamed', hook(async event => {
-  await MessageBuilder.create()
-    .addBlock(
-      createMessageBlock(`The organization was just renamed to \`${event.payload.organization.login}\`, this is incredibly unexpected`)
-    )
-    .addBlame(event.payload.sender)
-    .addSeverity('critical')
-    .send()
-}))
+webhooks.on(
+  'organization.renamed',
+  hook(async event => {
+    await MessageBuilder.create()
+      .addBlock(
+        createMessageBlock(
+          `The organization was just renamed to \`${event.payload.organization.login}\`, this is incredibly unexpected`,
+        ),
+      )
+      .addBlame(event.payload.sender)
+      .addSeverity('critical')
+      .send();
+  }),
+);
 
-webhooks.on('public', hook(async event => {
-  await MessageBuilder.create()
-    .addBlock(
-      createMessageBlock(`A private repository was just made public`)
-    )
-    .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
-    .addSeverity('warning')
-    .send()
-}));
+webhooks.on(
+  'public',
+  hook(async event => {
+    await MessageBuilder.create()
+      .addBlock(createMessageBlock(`A private repository was just made public`))
+      .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
+      .addSeverity('warning')
+      .send();
+  }),
+);
 
-webhooks.on('release', hook(async event => {
-  const message = MessageBuilder.create();
-  let severity: 'critical' | 'warning' | 'normal' = 'normal';
-  message.addBlock(createMessageBlock(`The "${event.payload.release.name}" release was just ${event.payload.action}`))
-  switch (event.payload.action) {
-    case 'deleted':  
-      severity = 'critical'
-      break;
-    case 'unpublished':
-    case 'edited':
-      severity = 'warning'
-      break;
-    case 'created':
-    case 'published':
-    case 'prereleased':
-      break;
-    default:
-      return;
-  }
-  await message.addRepositoryAndBlame(event.payload.repository, event.payload.sender)
-    .addSeverity(severity)
-    .send()
-}));
+webhooks.on(
+  'release',
+  hook(async event => {
+    const message = MessageBuilder.create();
+    let severity: 'critical' | 'warning' | 'normal' = 'normal';
+    message.addBlock(
+      createMessageBlock(
+        `The "${event.payload.release.name}" release was just ${event.payload.action}`,
+      ),
+    );
+    switch (event.payload.action) {
+      case 'deleted':
+        severity = 'critical';
+        break;
+      case 'unpublished':
+      case 'edited':
+        severity = 'warning';
+        break;
+      case 'created':
+      case 'published':
+      case 'prereleased':
+        break;
+      default:
+        return;
+    }
+    await message
+      .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
+      .addSeverity(severity)
+      .send();
+  }),
+);
 
 const app = express();
 

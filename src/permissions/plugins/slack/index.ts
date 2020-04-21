@@ -41,8 +41,19 @@ const getAllUsers = memoize(async () => {
   for await (const page of client.paginate('users.list') as any) {
     for (const member of page.members) {
       // Ignore non-full members and members without linked domain emails
-      if (member.is_restricted || member.is_ultra_restricted || member.is_bot || member.is_app_user || member.deleted) continue;
-      if (!member.profile.email || !member.profile.email.endsWith(`@${process.env.SHERIFF_GSUITE_DOMAIN}`)) continue;
+      if (
+        member.is_restricted ||
+        member.is_ultra_restricted ||
+        member.is_bot ||
+        member.is_app_user ||
+        member.deleted
+      )
+        continue;
+      if (
+        !member.profile.email ||
+        !member.profile.email.endsWith(`@${process.env.SHERIFF_GSUITE_DOMAIN}`)
+      )
+        continue;
       const username = member.profile.email.split('@')[0].toLowerCase();
       member.sheriff_username = username;
 
@@ -56,7 +67,7 @@ const getAllUsers = memoize(async () => {
 const englishCommaJoin = (arr: string[]) => {
   if (arr.length <= 1) return arr.join(',');
   return `${arr.slice(0, arr.length - 2).join(', ')} and ${arr[arr.length - 1]}`;
-}
+};
 
 class SlackPlugin implements Plugin {
   handleTeam = async (team: TeamConfig, builder: MessageBuilder) => {
@@ -65,7 +76,7 @@ class SlackPlugin implements Plugin {
 
     let groups = await getAllGroups();
     const { usersById, usersByUsername } = await getAllUsers();
-    
+
     const groupName = team.slack === true ? team.name : team.slack;
     const userGroupName = team.displayName || team.name;
     let existingGroup = groups.find(g => g.handle === groupName);
@@ -138,7 +149,7 @@ class SlackPlugin implements Plugin {
     expectedUserIds.sort();
     // The users match up, let's move on
     if (JSON.stringify(existingGroup.users) === JSON.stringify(expectedUserIds)) return;
-    
+
     const usernamesToRemove: string[] = [];
     const usernamesToAdd: string[] = [];
     for (const userId of expectedUserIds) {
@@ -155,7 +166,9 @@ class SlackPlugin implements Plugin {
 
     if (usernamesToRemove.length) {
       builder.addContext(
-        `:slack: :skull_and_crossbones: Evicting ${englishCommaJoin(usernamesToRemove)} out of Slack User Group \`${existingGroup.handle}\``,
+        `:slack: :skull_and_crossbones: Evicting ${englishCommaJoin(
+          usernamesToRemove,
+        )} out of Slack User Group \`${existingGroup.handle}\``,
       );
       console.info(
         chalk.red('Evicting'),
@@ -166,7 +179,9 @@ class SlackPlugin implements Plugin {
     }
     if (usernamesToAdd.length) {
       builder.addContext(
-        `:slack: :new: Adding \`${englishCommaJoin(usernamesToAdd)}\` to Slack User Group \`${existingGroup.handle}\``,
+        `:slack: :new: Adding \`${englishCommaJoin(usernamesToAdd)}\` to Slack User Group \`${
+          existingGroup.handle
+        }\``,
       );
       console.info(
         chalk.green('Adding'),
@@ -179,7 +194,7 @@ class SlackPlugin implements Plugin {
       await client.usergroups.users.update({
         usergroup: existingGroup.id,
         users: expectedUserIds.join(','),
-      })
+      });
     }
   };
 }
