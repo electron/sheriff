@@ -90,12 +90,14 @@ class GSuitePlugin implements Plugin {
         'as it did not exist',
       );
       if (!IS_DRY_RUN) {
-        existingGroup = (await service.groups.insert({
-          requestBody: {
-            email: expectedEmail,
-            name: team.displayName,
-          },
-        })).data!;
+        existingGroup = (
+          await service.groups.insert({
+            requestBody: {
+              email: expectedEmail,
+              name: team.displayName,
+            },
+          })
+        ).data!;
       }
     }
 
@@ -121,7 +123,10 @@ class GSuitePlugin implements Plugin {
         )
       ) {
         // Ignore slack notification emails, we need those
-        if (!process.env.SHERIFF_SLACK_DOMAIN || !member.email!.endsWith(`@${process.env.SHERIFF_SLACK_DOMAIN}.slack.com`)) {
+        if (
+          !process.env.SHERIFF_SLACK_DOMAIN ||
+          !member.email!.endsWith(`@${process.env.SHERIFF_SLACK_DOMAIN}.slack.com`)
+        ) {
           builder.addContext(
             `:skull_and_crossbones: Evicting \`${member.email}\` out of GSuite group \`${expectedEmail}\``,
           );

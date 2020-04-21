@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "cross-env AUTO_TUNNEL_NGROK=e-sheriff yarn start",
+    "lint": "prettier --check \"src/**/*.{ts,tsx}\"",
     "prettier:write": "prettier --write \"src/**/*.{ts,tsx}\"",
     "start": "node lib/index.js"
   },

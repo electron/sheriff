@@ -172,7 +172,10 @@ const validateConfigFast = async (config: PermissionsConfig) => {
             .only('internal', 'external')
             .required(),
         }).optional(),
-        slack: Joi.string().min(1).allow(true).optional(),
+        slack: Joi.string()
+          .min(1)
+          .allow(true)
+          .optional(),
       })
       .required(),
     repositories: Joi.array()
@@ -215,8 +218,8 @@ const validateConfigFast = async (config: PermissionsConfig) => {
     }
     if (team.gsuite && !team.displayName) {
       throw new Error(
-        `Team "${team.name}" has a gsuite config but no displayName, this is required`
-      )
+        `Team "${team.name}" has a gsuite config but no displayName, this is required`,
+      );
     }
     if (parentTeam) {
       let parentRef: TeamConfig | undefined = parentTeam;
@@ -365,11 +368,13 @@ async function main() {
   for (const repo of config.repositories) {
     let octoRepo = allRepos.find(r => repo.name === r.name);
     if (!octoRepo) {
-      octoRepo = (await octokit.repos.createInOrg({
-        org: config.organization,
-        name: repo.name,
-        has_wiki: false,
-      })).data as ReposGetResponse;
+      octoRepo = (
+        await octokit.repos.createInOrg({
+          org: config.organization,
+          name: repo.name,
+          has_wiki: false,
+        })
+      ).data as ReposGetResponse;
     }
     // If it is archived we can not update permissions but it should still
     // be in our config in case it becomes un-archived
@@ -415,15 +420,19 @@ const listAllOrgRepos = memoize(async function(config: PermissionsConfig) {
       org: config.organization,
     }),
   ) as Promise<ReposGetResponse[]>);
-  return repos.filter(
-    r =>
-      !GLITCHED_REPO_HASHES.includes(
-        crypto
-          .createHash('SHA256')
-          .update(r.name)
-          .digest('hex'),
-      ),
-  );
+
+  const securityRepoPattern = /^[\w]+-ghsa-[A-Za-z0-9-]{4}-[A-Za-z0-9-]{4}-[A-Za-z0-9-]{4}$/;
+  return repos.filter(r => {
+    const isSecurityAdvisory = securityRepoPattern.test(r.name);
+    const isGlitchedRepo = GLITCHED_REPO_HASHES.includes(
+      crypto
+        .createHash('SHA256')
+        .update(r.name)
+        .digest('hex'),
+    );
+
+    return !(isGlitchedRepo || isSecurityAdvisory);
+  });
 });
 
 const computeRepoSettings = (config: PermissionsConfig, repo: RepositoryConfig): RepoSettings => {
