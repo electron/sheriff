@@ -16,6 +16,7 @@ import {
   ReposListCollaboratorsResponseItem,
   ReposListCollaboratorsResponseItemPermissions,
   ReposGetResponse,
+  ReposListInvitationsResponseItem,
 } from '@octokit/rest';
 import { MessageBuilder } from '../MessageBuilder';
 import { plugins } from './plugins';
@@ -368,13 +369,11 @@ async function main() {
   for (const repo of config.repositories) {
     let octoRepo = allRepos.find(r => repo.name === r.name);
     if (!octoRepo) {
-      octoRepo = (
-        await octokit.repos.createInOrg({
-          org: config.organization,
-          name: repo.name,
-          has_wiki: false,
-        })
-      ).data as ReposGetResponse;
+      octoRepo = (await octokit.repos.createInOrg({
+        org: config.organization,
+        name: repo.name,
+        has_wiki: false,
+      })).data as ReposGetResponse;
     }
     // If it is archived we can not update permissions but it should still
     // be in our config in case it becomes un-archived
@@ -805,6 +804,64 @@ async function checkRepository(
     }
   }
 
+  const currentInvites = (await octokit.paginate(
+    octokit.repos.listInvitations.endpoint.merge({
+      owner: config.organization,
+      repo: repo.name,
+    }),
+  )) as ReposListInvitationsResponseItem[];
+
+  for (const currentInvite of currentInvites) {
+    // Current invitee should not be on this repo according to the config
+    if (!Object.keys(repo.external_collaborators || {}).includes(currentInvite.invitee.login)) {
+      // Blast them to oblivion
+      builder.addContext(
+        `:fire: Removing Invite for \`${currentInvite.invitee.login}\` from repo \`${repo.name}\` would have had \`${currentInvite.permissions}\``,
+      );
+      console.info(
+        chalk.red('Removing Invite'),
+        chalk.cyan(currentInvite.invitee.login),
+        'from repo',
+        chalk.cyan(repo.name),
+        'would have had',
+        chalk.magenta(currentInvite.permissions),
+      );
+      if (!IS_DRY_RUN)
+        await octokit.repos.deleteInvitation({
+          owner: config.organization,
+          repo: repo.name,
+          invitation_id: currentInvite.id,
+        });
+    } else {
+      // They're supposed to be here, let's check the permission level is ok
+      const currentLevel = currentInvite.permissions as AccessLevel;
+      const supposedLevel = repo.external_collaborators[currentInvite.invitee.login];
+      if (currentLevel !== supposedLevel) {
+        // Looks like the permission level isn't quite right, let's suggest we update that
+        builder.addContext(
+          `:arrows_counterclockwise: Changing invite for \`${currentInvite.invitee.login}\` in repo \`${repo.name}\` from access level \`${currentLevel}\` :arrow_right: \`${supposedLevel}\``,
+        );
+        console.info(
+          chalk.yellow('Changing Invite'),
+          chalk.cyan(currentInvite.invitee.login),
+          'in repo',
+          chalk.cyan(repo.name),
+          'from access level',
+          chalk.magenta(currentLevel),
+          'to',
+          chalk.magenta(supposedLevel),
+        );
+        if (!IS_DRY_RUN)
+          await octokit.repos.updateInvitation({
+            owner: config.organization,
+            repo: repo.name,
+            invitation_id: currentInvite.id,
+            permissions: supposedLevel,
+          });
+      }
+    }
+  }
+
   const currentCollaborators = (await octokit.paginate(
     octokit.repos.listCollaborators.endpoint.merge({
       owner: config.organization,
@@ -888,6 +945,9 @@ async function checkRepository(
     if (
       !currentCollaborators.find(
         currentCollaborator => currentCollaborator.login === supposedCollaboratorName,
+      ) &&
+      !currentInvites.find(
+        currentInvite => currentInvite.invitee.login === supposedCollaboratorName,
       )
     ) {
       // Hm, let's suggest we add this collaborator at the right access level

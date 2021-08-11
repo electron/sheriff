@@ -90,14 +90,12 @@ class GSuitePlugin implements Plugin {
         'as it did not exist',
       );
       if (!IS_DRY_RUN) {
-        existingGroup = (
-          await service.groups.insert({
-            requestBody: {
-              email: expectedEmail,
-              name: team.displayName,
-            },
-          })
-        ).data!;
+        existingGroup = (await service.groups.insert({
+          requestBody: {
+            email: expectedEmail,
+            name: team.displayName,
+          },
+        })).data!;
       }
     }
 
