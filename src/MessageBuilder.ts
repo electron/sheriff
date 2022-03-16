@@ -1,6 +1,6 @@
 import { IncomingWebhook, IncomingWebhookSendArguments } from '@slack/webhook';
-import { Block, KnownBlock } from '@slack/types';
-import { PayloadRepository } from '@octokit/webhooks';
+import { RepositoryCreatedEvent } from '@octokit/webhooks-types';
+import { KnownBlock } from '@slack/types';
 
 const HOST = process.env.AUTO_TUNNEL_NGROK
   ? `https://${process.env.AUTO_TUNNEL_NGROK}.ngrok.io`
@@ -40,7 +40,7 @@ export class MessageBuilder {
     return new MessageBuilder();
   }
 
-  public addRepositoryAndBlame(repository: PayloadRepository, user: MinimalUserInfo) {
+  public addRepositoryAndBlame(repository: RepositoryCreatedEvent['repository'], user: MinimalUserInfo) {
     this.divide();
     this.addRepositoryContext(repository);
     this.divide();
@@ -70,7 +70,7 @@ export class MessageBuilder {
     return this;
   }
 
-  public addRepositoryContext(repo: PayloadRepository) {
+  public addRepositoryContext(repo: RepositoryCreatedEvent['repository']) {
     this.addBlock(
       createMarkdownBlock(
         `*Repository: <${repo.html_url}|${repo.owner.login}/${repo.name}>*\n${repo.description ||

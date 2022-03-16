@@ -4,7 +4,7 @@ import * as express from 'express';
 import { AddressInfo } from 'net';
 import * as path from 'path';
 
-import * as WebhooksApi from '@octokit/webhooks';
+import { Webhooks as WebhooksApi, createNodeMiddleware } from '@octokit/webhooks';
 import { isMainRepo, hook } from './helpers';
 import { MessageBuilder, createMessageBlock, createMarkdownBlock } from './MessageBuilder';
 import { octokit } from './octokit';
@@ -13,8 +13,7 @@ const webhooks = new WebhooksApi({
   secret: process.env.GITHUB_WEBHOOK_SECRET || 'development',
 });
 
-webhooks.on(
-  '*',
+webhooks.onAny(
   hook(async ({ name }, ctx) => {
     ctx.log('Event:', name, 'received');
   }),
@@ -96,7 +95,7 @@ webhooks.on(
 );
 
 webhooks.on(
-  'member.deleted',
+  'member.removed',
   hook(async event => {
     // Collaborator removed from repo
     await MessageBuilder.create()
@@ -151,13 +150,18 @@ webhooks.on(
 webhooks.on(
   'organization.member_invited',
   hook(async event => {
+    const invitedLogin = event.payload.invitation.login;
     await MessageBuilder.create()
       .addBlock(
         createMessageBlock(
           `A new member was just invited to the "${event.payload.organization.login}" organization`,
         ),
       )
-      .addUser(event.payload.membership.user, 'Invited Member')
+      .addUser({
+        login: invitedLogin,
+        html_url: `https://github.com/${invitedLogin}`,
+        avatar_url: `https://github.com/${invitedLogin}.png`,
+      }, 'Invited Member')
       .addBlame(event.payload.sender)
       .addSeverity('normal')
       .send();
@@ -258,7 +262,9 @@ const app = express();
 
 app.use('/static', express.static(path.resolve(__dirname, '../static')));
 
-app.use(webhooks.middleware);
+app.use(createNodeMiddleware(webhooks, {
+  path: '/'
+}));
 
 const server = app.listen(process.env.PORT || 8080, async () => {
   const port = (server.address() as AddressInfo).port;

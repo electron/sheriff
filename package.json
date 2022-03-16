@@ -12,8 +12,9 @@
   },
   "author": "Samuel Attard",
   "dependencies": {
-    "@octokit/rest": "^16.33.0",
-    "@octokit/webhooks": "^6.3.2",
+    "@octokit/graphql": "^4.8.0",
+    "@octokit/rest": "^18.12.0",
+    "@octokit/webhooks": "^9.23.0",
     "@slack/web-api": "^5.8.0",
     "@slack/webhook": "^5.0.0",
     "chalk": "^2.4.2",
@@ -32,6 +33,6 @@
     "cross-env": "^5.2.0",
     "ngrok": "^3.1.1",
     "prettier": "^1.18.2",
-    "typescript": "^3.5.2"
+    "typescript": "^4.6.2"
   }
 }
