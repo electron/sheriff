@@ -9,6 +9,7 @@
 		"declaration": true,
 		"strict": true,
 		"incremental": true,
-		"outDir": "lib"
+		"outDir": "lib",
+		"esModuleInterop": true
 	}
 }
