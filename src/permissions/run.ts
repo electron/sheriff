@@ -178,10 +178,10 @@ const validateConfigFast = async (config: PermissionsConfig) => {
           .min(1)
           .required(),
         teams: Joi.object()
-          .pattern(Joi.string(), Joi.string().only('read', 'write', 'admin'))
+          .pattern(Joi.string(), Joi.string().only('read', 'triage', 'write', 'maintain', 'admin'))
           .optional(),
         external_collaborators: Joi.object()
-          .pattern(Joi.string().min(1), Joi.string().only('read', 'write', 'admin'))
+          .pattern(Joi.string().min(1), Joi.string().only('read', 'triage', 'write', 'maintain', 'admin'))
           .optional(),
         settings: Joi.object({
           has_wiki: Joi.boolean(),
