@@ -3,6 +3,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs-extra';
 import * as Joi from 'joi';
 import * as yml from 'js-yaml';
+import queue from 'queue';
 
 import { TeamConfig } from './plugins/Plugin';
 
@@ -359,6 +360,8 @@ async function main() {
     await checkTeam(builder, config, team);
   }
 
+  const reposToCheck: RepositoryConfig[] = [];
+
   for (const repo of config.repositories) {
     let octoRepo = allRepos.find(r => repo.name === r.name);
     if (!octoRepo) {
@@ -371,8 +374,29 @@ async function main() {
     // If it is archived we can not update permissions but it should still
     // be in our config in case it becomes un-archived
     if (!octoRepo.archived) {
-      await checkRepository(builder, config, repo);
+      reposToCheck.push(repo);
     }
+  }
+
+  const q = queue({
+    concurrency: 8,
+    autostart: false,
+  });
+
+  for (const repo of reposToCheck) {
+    q.push(() => preloadRepositoryMetadata(config, repo));
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    q.start((err) => {
+      if (err) return reject(err);
+
+      resolve();
+    })
+  });
+
+  for (const repo of reposToCheck) {
+    await checkRepository(builder, config, repo);
   }
 
   if (!IS_DRY_RUN) await builder.send();
@@ -550,19 +574,21 @@ async function checkTeam(builder: MessageBuilder, config: PermissionsConfig, tea
       }
     }
     `;
-    let res = await graphyOctokit(query, {
-      org: config.organization,
-      team: octoTeam.slug,
-      role: 'MEMBER',
-      // team_node_id: octoTeam.node_id,
-    }) as any;
-    currentMembers = res.organization.team.members.nodes as Array<{ id: number, login: string }>;
-    res = await graphyOctokit(query, {
-      org: config.organization,
-      team: octoTeam.slug,
-      role: 'MAINTAINER',
-    }) as any;
-    currentMaintainers = res.organization.team.members.nodes as Array<{ id: number, login: string }>;
+    const [memberRes, maintainerRes] = await Promise.all([
+      graphyOctokit(query, {
+        org: config.organization,
+        team: octoTeam.slug,
+        role: 'MEMBER',
+        // team_node_id: octoTeam.node_id,
+      }) as any,
+      graphyOctokit(query, {
+        org: config.organization,
+        team: octoTeam.slug,
+        role: 'MAINTAINER',
+      }) as any,
+    ]);
+    currentMembers = memberRes.organization.team.members.nodes as Array<{ id: number, login: string }>;
+    currentMaintainers = maintainerRes.organization.team.members.nodes as Array<{ id: number, login: string }>;
   }
 
   for (const currentMaintainer of currentMaintainers) {
@@ -728,17 +754,50 @@ async function checkTeam(builder: MessageBuilder, config: PermissionsConfig, tea
   }
 }
 
+type ResolveType<T extends Promise<any>> = T extends Promise<infer V> ? V : never;
+
+const metadata = new Map<RepositoryConfig, ResolveType<ReturnType<typeof loadRepositoryMetadata>>>();
+async function loadRepositoryMetadata(config: PermissionsConfig, repo: RepositoryConfig) {
+  const [currentTeams, currentInvites, currentCollaborators] = await Promise.all([
+    (octokit.paginate(
+      octokit.repos.listTeams, {
+        owner: config.organization,
+        repo: repo.name,
+      },
+    )),
+    (octokit.paginate(
+      octokit.repos.listInvitations, {
+        owner: config.organization,
+        repo: repo.name,
+      },
+    )),
+    (octokit.paginate(
+      octokit.repos.listCollaborators, {
+        owner: config.organization,
+        repo: repo.name,
+        affiliation: 'direct',
+      },
+    ))
+  ]);
+
+  return { currentTeams, currentInvites, currentCollaborators}
+}
+
+async function preloadRepositoryMetadata(
+  config: PermissionsConfig,
+  repo: RepositoryConfig,
+) {
+  if (metadata.has(repo)) return;
+
+  metadata.set(repo, await loadRepositoryMetadata(config, repo));
+}
+
 async function checkRepository(
   builder: MessageBuilder,
   config: PermissionsConfig,
   repo: RepositoryConfig,
 ) {
-  const currentTeams = (await octokit.paginate(
-    octokit.repos.listTeams, {
-      owner: config.organization,
-      repo: repo.name,
-    },
-  ));
+  const { currentTeams, currentInvites, currentCollaborators } = metadata.get(repo)!;
 
   for (const currentTeam of currentTeams) {
     // Current team should not be on this repo according to the config
@@ -823,13 +882,6 @@ async function checkRepository(
     }
   }
 
-  const currentInvites = (await octokit.paginate(
-    octokit.repos.listInvitations, {
-      owner: config.organization,
-      repo: repo.name,
-    },
-  ));
-
   for (const currentInvite of currentInvites) {
     const invitee = currentInvite.invitee!;
     // Current invitee should not be on this repo according to the config
@@ -881,14 +933,6 @@ async function checkRepository(
       }
     }
   }
-
-  const currentCollaborators = (await octokit.paginate(
-    octokit.repos.listCollaborators, {
-      owner: config.organization,
-      repo: repo.name,
-      affiliation: 'direct',
-    },
-  ));
 
   for (const currentCollaborator of currentCollaborators) {
     // Current collaborator should not be on this repo according to the config
