@@ -12,6 +12,7 @@
   },
   "author": "Samuel Attard",
   "dependencies": {
+    "@octokit/auth-app": "^3.6.1",
     "@octokit/graphql": "^4.8.0",
     "@octokit/rest": "^18.12.0",
     "@octokit/webhooks": "^9.23.0",
