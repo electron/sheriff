@@ -21,27 +21,19 @@ const GLITCHED_REPO_HASHES = [
 
 console.warn('Dry Run?:', chalk[IS_DRY_RUN ? 'green' : 'red'](`${IS_DRY_RUN}`));
 
-type AccessLevel = 'read' | 'write' | 'admin';
-type GitHubAccessLevel = 'pull' | 'push' | 'admin';
-
-const gitHubLevelToSheriffLevel = (gitHubLevel: GitHubAccessLevel): AccessLevel => {
-  switch (gitHubLevel) {
-    case 'pull':
-      return 'read';
-    case 'push':
-      return 'write';
-    case 'admin':
-      return 'admin';
-  }
-  throw new Error(`Attempted to convert unknown github access level "${gitHubLevel}"`);
-};
+type AccessLevel = 'read' | 'triage' | 'write' | 'maintain' | 'admin';
+type GitHubAccessLevel = 'pull' | 'triage' | 'push' | 'maintain' | 'admin';
 
 const sheriffLevelToGitHubLevel = (acessLevel: AccessLevel): GitHubAccessLevel => {
   switch (acessLevel) {
     case 'read':
       return 'pull';
+    case 'triage':
+      return 'triage';
     case 'write':
       return 'push';
+    case 'maintain':
+      return 'maintain';
     case 'admin':
       return 'admin';
   }
@@ -58,7 +50,9 @@ const gitHubPermissionsToSheriffLevel = (
   },
 ): AccessLevel => {
   if (gitHubPermissions.admin) return 'admin';
+  if (gitHubPermissions.maintain) return 'maintain';
   if (gitHubPermissions.push) return 'write';
+  if (gitHubPermissions.triage) return 'triage';
   if (gitHubPermissions.pull) return 'read';
   throw new Error(
     `Attempted to convert unhandleable github permissions object "${JSON.stringify(
@@ -753,8 +747,8 @@ async function checkRepository(
       builder.addContext(
         `:fire: Removing \`${currentTeam.name}\` team from repo \`${
           repo.name
-        }\` used to have \`${gitHubLevelToSheriffLevel(
-          currentTeam.permission as GitHubAccessLevel,
+        }\` used to have \`${gitHubPermissionsToSheriffLevel(
+          currentTeam.permissions!,
         )}\``,
       );
       console.info(
@@ -763,7 +757,7 @@ async function checkRepository(
         'team from repo',
         chalk.cyan(repo.name),
         'used to have',
-        chalk.magenta(gitHubLevelToSheriffLevel(currentTeam.permission as GitHubAccessLevel)),
+        chalk.magenta(gitHubPermissionsToSheriffLevel(currentTeam.permissions!)),
       );
       if (!IS_DRY_RUN)
         await octokit.teams.removeRepoInOrg({
@@ -774,7 +768,7 @@ async function checkRepository(
         });
     } else {
       // It's supposed to be here, let's check the permission level is ok
-      const currentLevel = gitHubLevelToSheriffLevel(currentTeam.permission as GitHubAccessLevel);
+      const currentLevel = gitHubPermissionsToSheriffLevel(currentTeam.permissions!);
       const supposedLevel = repo.teams[currentTeam.name];
       if (currentLevel !== supposedLevel) {
         // Looks like the permission level isn't quite right, let's suggest we update that
