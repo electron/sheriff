@@ -16,7 +16,6 @@ import { plugins } from './plugins';
 const GLITCHED_REPO_HASHES = [
   'd9a1eb0cd63e7509c90828354e18d54a8d616c80ecdc6ded8972a4f788540859',
   '02bbdc6c7234919718640b8ea2bbfd6b928a6b6b6673f3cf1c47b014ec862fba',
-  'c0d21cf7d21c8e1e455489565f423585517812a9ec63382bd380193ae2a8af59',
   'bc413d15c3f36be3440c26fad745619ec92effe583ce26849e7f7d5ad8f80465',
 ];
 
