@@ -6,7 +6,7 @@ import {
   getTokenForRepo,
 } from '@electron/github-app-auth';
 import {
-  GITHUB_APP_PRIVATE_KEY,
+  SHERIFF_GITHUB_APP_CREDS,
   ORGANIZATION_NAME,
   REPO_NAME
 } from './constants';
@@ -17,7 +17,7 @@ let octokit: Octokit;
 export async function getOctokit() {
   if (octokit) return octokit;
 
-  const creds = appCredentialsFromString(GITHUB_APP_PRIVATE_KEY!);
+  const creds = appCredentialsFromString(SHERIFF_GITHUB_APP_CREDS!);
   const authOpts = await getAuthOptionsForRepo(
     {
       owner: ORGANIZATION_NAME,
@@ -30,7 +30,7 @@ export async function getOctokit() {
 }
 
 export function graphyOctokit() {
-  const creds = appCredentialsFromString(GITHUB_APP_PRIVATE_KEY!);
+  const creds = appCredentialsFromString(SHERIFF_GITHUB_APP_CREDS!);
   const token = getTokenForRepo({
     owner: ORGANIZATION_NAME,
     name: REPO_NAME

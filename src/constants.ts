@@ -1,7 +1,7 @@
 export const ORGANIZATION_NAME = process.env.ORGANIZATION_NAME || 'electron';
 export const REPO_NAME = process.env.REPO_NAME || 'electron';
 
-export const GITHUB_APP_PRIVATE_KEY = process.env.GITHUB_APP_PRIVATE_KEY;
+export const SHERIFF_GITHUB_APP_CREDS = process.env.SHERIFF_GITHUB_APP_CREDS;
 export const GITHUB_WEBHOOK_SECRET = process.env.GITHUB_WEBHOOK_SECRET || 'development';
 
 export const PERMISSIONS_FILE_ORG = process.env.PERMISSIONS_FILE_ORG;
