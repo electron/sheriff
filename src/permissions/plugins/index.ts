@@ -2,8 +2,9 @@ import { Plugin } from './Plugin';
 
 import { gsuitePlugin } from './gsuite';
 import { slackPlugin } from './slack';
+import { SHERIFF_PLUGINS } from '../../constants';
 
-const enabledPlugins = (process.env.SHERIFF_PLUGINS || '').split(',');
+const enabledPlugins = SHERIFF_PLUGINS.split(',');
 
 export const plugins: Plugin[] = [];
 

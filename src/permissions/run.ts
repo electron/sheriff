@@ -7,11 +7,12 @@ import queue from 'queue';
 
 import { TeamConfig } from './plugins/Plugin';
 
-import { graphyOctokit, octokit } from '../octokit';
+import { graphyOctokit, getOctokit } from '../octokit';
 import { memoize, IS_DRY_RUN } from '../helpers';
 import { GetResponseDataTypeFromEndpointMethod } from '@octokit/types';
 import { MessageBuilder } from '../MessageBuilder';
 import { plugins } from './plugins';
+import { PERMISSIONS_FILE_ORG, PERMISSIONS_FILE_PATH, PERMISSIONS_FILE_REPO } from '../constants';
 
 const GLITCHED_REPO_HASHES = [
   'd9a1eb0cd63e7509c90828354e18d54a8d616c80ecdc6ded8972a4f788540859',
@@ -86,14 +87,15 @@ interface PermissionsConfig {
 const loadCurrentConfig = async () => {
   if (fs.existsSync('config.yml'))
     return yml.safeLoad(fs.readFileSync('config.yml', 'utf8')) as PermissionsConfig;
-  if (!process.env.PERMISSIONS_FILE_ORG) {
+  if (!PERMISSIONS_FILE_ORG) {
     throw new Error('Missing PERMISSIONS_FILE_ORG env var');
   }
 
+  const octokit = await getOctokit();
   const contents = await octokit.repos.getContent({
-    owner: process.env.PERMISSIONS_FILE_ORG!,
-    repo: process.env.PERMISSIONS_FILE_REPO || '.permissions',
-    path: process.env.PERMISSIONS_FILE_PATH || 'config.yaml',
+    owner: PERMISSIONS_FILE_ORG,
+    repo: PERMISSIONS_FILE_REPO,
+    path: PERMISSIONS_FILE_PATH,
   });
   if (Array.isArray(contents.data)) throw new Error('Invalid config file');
 
@@ -281,6 +283,8 @@ async function main() {
   const allRepos = await listAllOrgRepos(config);
   const allTeams = await listAllTeams(config);
 
+  const octokit = await getOctokit();
+
   const allUsers = await listAllOrgMembersAndOwners(config);
   const badUsers: string[] = [];
   for (const team of config.teams) {
@@ -402,20 +406,23 @@ async function main() {
   if (!IS_DRY_RUN) await builder.send();
 }
 
-const listAllOrgOwners = memoize(function(config: PermissionsConfig) {
+const listAllOrgOwners = memoize(async (config: PermissionsConfig) => {
+  const octokit = await getOctokit();
   return octokit.paginate(octokit.orgs.listMembers, {
     org: config.organization,
     role: 'admin',
   });
 });
 
-const listAllOrgMembersAndOwners = memoize(function(config: PermissionsConfig) {
+const listAllOrgMembersAndOwners = memoize(async (config: PermissionsConfig) => {
+  const octokit = await getOctokit();
   return octokit.paginate(octokit.orgs.listMembers, {
     org: config.organization,
   });
 });
 
-const listAllTeams = memoize(function(config: PermissionsConfig) {
+const listAllTeams = memoize(async (config: PermissionsConfig) => {
+  const octokit = await getOctokit();
   return octokit.paginate(octokit.teams.list, {
     org: config.organization,
     headers: {
@@ -424,7 +431,8 @@ const listAllTeams = memoize(function(config: PermissionsConfig) {
   });
 });
 
-const listAllOrgRepos = memoize(async function(config: PermissionsConfig) {
+const listAllOrgRepos = memoize(async (config: PermissionsConfig) => {
+  const octokit = await getOctokit();
   const repos = await octokit.paginate(octokit.repos.listForOrg, {
     org: config.organization,
   });
@@ -460,6 +468,7 @@ async function findTeamByName(
   config: PermissionsConfig,
   teamName: string,
 ): Promise<GetResponseDataTypeFromEndpointMethod<typeof octokit.teams.list>[0]> {
+  const octokit = await getOctokit();
   const allTeams = await listAllTeams(config);
   const matchingTeams = allTeams.filter(team => team.name === teamName);
   if (matchingTeams.length > 1)
@@ -493,6 +502,7 @@ async function findTeamByName(
 async function checkTeam(builder: MessageBuilder, config: PermissionsConfig, team: TeamConfig) {
   const octoTeam = await findTeamByName(builder, config, team.name);
   const orgOwners = await listAllOrgOwners(config);
+  const octokit = await getOctokit();
 
   const proposedPrivacy = team.secret ? 'secret' : 'closed';
   if (octoTeam.privacy !== proposedPrivacy) {
@@ -566,14 +576,15 @@ async function checkTeam(builder: MessageBuilder, config: PermissionsConfig, tea
       }
     }
     `;
+    const gql = await graphyOctokit();
     const [memberRes, maintainerRes] = await Promise.all([
-      graphyOctokit(query, {
+      gql(query, {
         org: config.organization,
         team: octoTeam.slug,
         role: 'MEMBER',
         // team_node_id: octoTeam.node_id,
       }) as any,
-      graphyOctokit(query, {
+      gql(query, {
         org: config.organization,
         team: octoTeam.slug,
         role: 'MAINTAINER',
@@ -759,6 +770,7 @@ const metadata = new Map<
   ResolveType<ReturnType<typeof loadRepositoryMetadata>>
 >();
 async function loadRepositoryMetadata(config: PermissionsConfig, repo: RepositoryConfig) {
+  const octokit = await getOctokit();
   const [currentTeams, currentInvites, currentCollaborators] = await Promise.all([
     octokit.paginate(octokit.repos.listTeams, {
       owner: config.organization,
@@ -808,13 +820,15 @@ async function checkRepository(
         'used to have',
         chalk.magenta(gitHubPermissionsToSheriffLevel(currentTeam.permissions!)),
       );
-      if (!IS_DRY_RUN)
+      if (!IS_DRY_RUN) {
+        const octokit = await getOctokit();
         await octokit.teams.removeRepoInOrg({
           team_slug: currentTeam.slug,
           org: config.organization,
           owner: config.organization,
           repo: repo.name,
         });
+      }
     } else {
       // It's supposed to be here, let's check the permission level is ok
       const currentLevel = gitHubPermissionsToSheriffLevel(currentTeam.permissions!);
@@ -834,7 +848,8 @@ async function checkRepository(
           'to',
           chalk.magenta(supposedLevel),
         );
-        if (!IS_DRY_RUN)
+        if (!IS_DRY_RUN) {
+          const octokit = await getOctokit();
           await octokit.teams.addOrUpdateRepoPermissionsInOrg({
             team_slug: currentTeam.slug,
             org: config.organization,
@@ -842,6 +857,7 @@ async function checkRepository(
             repo: repo.name,
             permission: sheriffLevelToGitHubLevel(supposedLevel),
           });
+        }
       }
     }
   }
@@ -861,7 +877,8 @@ async function checkRepository(
         'at base access level',
         chalk.magenta(repo.teams[supposedTeamName]),
       );
-      if (!IS_DRY_RUN)
+      if (!IS_DRY_RUN) {
+        const octokit = await getOctokit();
         await octokit.teams.addOrUpdateRepoPermissionsInOrg({
           owner: config.organization,
           repo: repo.name,
@@ -869,6 +886,7 @@ async function checkRepository(
           org: config.organization,
           team_slug: (await findTeamByName(builder, config, supposedTeamName)).slug,
         });
+      }
     }
   }
 
@@ -888,12 +906,14 @@ async function checkRepository(
         'would have had',
         chalk.magenta(currentInvite.permissions),
       );
-      if (!IS_DRY_RUN)
+      if (!IS_DRY_RUN) {
+        const octokit = await getOctokit();
         await octokit.repos.deleteInvitation({
           owner: config.organization,
           repo: repo.name,
           invitation_id: currentInvite.id,
         });
+      }
     } else {
       // They're supposed to be here, let's check the permission level is ok
       const currentLevel = currentInvite.permissions as AccessLevel;
@@ -913,13 +933,15 @@ async function checkRepository(
           'to',
           chalk.magenta(supposedLevel),
         );
-        if (!IS_DRY_RUN)
+        if (!IS_DRY_RUN) {
+          const octokit = await getOctokit();
           await octokit.repos.updateInvitation({
             owner: config.organization,
             repo: repo.name,
             invitation_id: currentInvite.id,
             permissions: supposedLevel,
           });
+        }
       }
     }
   }
@@ -941,12 +963,14 @@ async function checkRepository(
         'used to have',
         chalk.magenta(gitHubPermissionsToSheriffLevel(currentCollaborator.permissions!)),
       );
-      if (!IS_DRY_RUN)
+      if (!IS_DRY_RUN) {
+        const octokit = await getOctokit();
         await octokit.repos.removeCollaborator({
           owner: config.organization,
           repo: repo.name,
           username: currentCollaborator.login,
         });
+      }
     } else {
       // They're supposed to be here, let's check the permission level is ok
       const currentLevel = gitHubPermissionsToSheriffLevel(currentCollaborator.permissions!);
@@ -966,13 +990,15 @@ async function checkRepository(
           'to',
           chalk.magenta(supposedLevel),
         );
-        if (!IS_DRY_RUN)
+        if (!IS_DRY_RUN) {
+          const octokit = await getOctokit();
           await octokit.repos.addCollaborator({
             owner: config.organization,
             repo: repo.name,
             username: currentCollaborator.login,
             permission: sheriffLevelToGitHubLevel(supposedLevel),
           });
+        }
       }
     }
   }
@@ -986,6 +1012,7 @@ async function checkRepository(
     builder.addContext(`:speak_no_evil: Updating repostiory settings for \`${octoRepo.name}\``);
     console.info(chalk.yellow('Updating repository settings for'), chalk.cyan(octoRepo.name));
     if (!IS_DRY_RUN) {
+      const octokit = await getOctokit();
       await octokit.repos.update({
         owner: config.organization,
         repo: octoRepo.name,
@@ -1016,7 +1043,8 @@ async function checkRepository(
         'at base access level',
         chalk.magenta(repo.external_collaborators[supposedCollaboratorName]),
       );
-      if (!IS_DRY_RUN)
+      if (!IS_DRY_RUN) {
+        const octokit = await getOctokit();
         await octokit.repos.addCollaborator({
           owner: config.organization,
           repo: repo.name,
@@ -1025,6 +1053,7 @@ async function checkRepository(
             repo.external_collaborators[supposedCollaboratorName],
           ),
         });
+      }
     }
   }
 }

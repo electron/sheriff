@@ -7,10 +7,16 @@ import * as path from 'path';
 import { Webhooks as WebhooksApi, createNodeMiddleware } from '@octokit/webhooks';
 import { isMainRepo, hook } from './helpers';
 import { MessageBuilder, createMessageBlock, createMarkdownBlock } from './MessageBuilder';
-import { octokit } from './octokit';
+import { getOctokit } from './octokit';
+import {
+  AUTO_TUNNEL_NGROK,
+  GITHUB_WEBHOOK_SECRET,
+  PORT,
+  SHERIFF_IMPORTANT_BRANCH,
+} from './constants';
 
 const webhooks = new WebhooksApi({
-  secret: process.env.GITHUB_WEBHOOK_SECRET || 'development',
+  secret: GITHUB_WEBHOOK_SECRET,
 });
 
 webhooks.onAny(
@@ -20,7 +26,7 @@ webhooks.onAny(
 );
 
 const importantBranchMatcher = () =>
-  process.env.SHERIFF_IMPORTANT_BRANCH ? new RegExp('(^[0-9]+-[0-9]+-x$)|(^[0-9]+-x-y$)') : null;
+  SHERIFF_IMPORTANT_BRANCH ? new RegExp('(^[0-9]+-[0-9]+-x$)|(^[0-9]+-x-y$)') : null;
 
 webhooks.on(
   'delete',
@@ -113,6 +119,7 @@ webhooks.on(
     // Collaborator has permission level changed on repo
     const originalPermission = (event.payload as any).changes.permission.from;
     // We have to fetch the new permission level through the API
+    const octokit = await getOctokit();
     const newPermissionLevel = await octokit.repos.getCollaboratorPermissionLevel({
       owner: event.payload.repository.owner.login,
       repo: event.payload.repository.name,
@@ -271,13 +278,13 @@ app.use(
   }),
 );
 
-const server = app.listen(process.env.PORT || 8080, async () => {
+const server = app.listen(PORT, async () => {
   const port = (server.address() as AddressInfo).port;
   console.log('Electron Sheriff Listening:', `http://127.0.0.1:${port}`);
-  if (process.env.AUTO_TUNNEL_NGROK) {
+  if (AUTO_TUNNEL_NGROK) {
     const ngrok = require('ngrok');
     const url = await ngrok.connect({
-      subdomain: process.env.AUTO_TUNNEL_NGROK,
+      subdomain: AUTO_TUNNEL_NGROK,
       port,
     });
     console.log('Ngrok Tunnel Active:', url);

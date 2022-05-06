@@ -1,12 +1,11 @@
 import { IncomingWebhook, IncomingWebhookSendArguments } from '@slack/webhook';
 import { RepositoryCreatedEvent } from '@octokit/webhooks-types';
 import { KnownBlock } from '@slack/types';
+import { AUTO_TUNNEL_NGROK, SHERIFF_HOST_URL, SLACK_WEBHOOK_URL } from './constants';
 
-const HOST = process.env.AUTO_TUNNEL_NGROK
-  ? `https://${process.env.AUTO_TUNNEL_NGROK}.ngrok.io`
-  : process.env.SHERIFF_HOST_URL;
+const HOST = AUTO_TUNNEL_NGROK ? `https://${AUTO_TUNNEL_NGROK}.ngrok.io` : SHERIFF_HOST_URL;
 
-const hook = new IncomingWebhook(process.env.SLACK_WEBHOOK_URL!);
+const hook = new IncomingWebhook(SLACK_WEBHOOK_URL!);
 
 type MinimalUserInfo = {
   login: string;

@@ -1,20 +1,42 @@
-import { createAppAuth } from '@octokit/auth-app';
 import { graphql } from '@octokit/graphql';
 import { Octokit } from '@octokit/rest';
+import {
+  appCredentialsFromString,
+  getAuthOptionsForRepo,
+  getTokenForRepo,
+} from '@electron/github-app-auth';
+import { SHERIFF_GITHUB_APP_CREDS, ORGANIZATION_NAME, REPO_NAME } from './constants';
 
 require('dotenv-safe').config();
 
-export const octokit = new Octokit({
-  authStrategy: createAppAuth,
-  auth: {
-    appId: process.env.GITHUB_APP_ID,
-    privateKey: Buffer.from(process.env.GITHUB_APP_PRIVATE_KEY!, 'base64').toString('utf8'),
-    installationId: process.env.GITHUB_INSTALLATION_ID,
-  },
-});
+let octokit: Octokit;
+export async function getOctokit() {
+  if (octokit) return octokit;
 
-export const graphyOctokit = graphql.defaults({
-  headers: {
-    authorization: `token ${process.env.GITHUB_TOKEN!}`,
-  },
-});
+  const creds = appCredentialsFromString(SHERIFF_GITHUB_APP_CREDS!);
+  const authOpts = await getAuthOptionsForRepo(
+    {
+      owner: ORGANIZATION_NAME,
+      name: REPO_NAME,
+    },
+    creds,
+  );
+  octokit = new Octokit({ ...authOpts });
+  return octokit;
+}
+
+export async function graphyOctokit() {
+  const creds = appCredentialsFromString(SHERIFF_GITHUB_APP_CREDS!);
+  const token = await getTokenForRepo(
+    {
+      owner: ORGANIZATION_NAME,
+      name: REPO_NAME,
+    },
+    creds,
+  );
+  return graphql.defaults({
+    headers: {
+      authorization: `token ${token}`,
+    },
+  });
+}

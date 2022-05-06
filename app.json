@@ -14,10 +14,6 @@
   "success_url": "https://github.com/electron/sheriff",
   "scripts": {},
   "env": {
-    "GITHUB_TOKEN": {
-      "description": "A personal access token for an organization owner with the `repo` scope",
-      "required": true
-    },
     "GITHUB_WEBHOOK_SECRET": {
       "description": "The secret for the org-wide webhook",
       "required": true

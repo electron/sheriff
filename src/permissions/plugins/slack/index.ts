@@ -1,10 +1,10 @@
 import { Plugin, TeamConfig } from '../Plugin';
 import { MessageBuilder } from '../../../MessageBuilder';
 import { memoize, IS_DRY_RUN } from '../../../helpers';
-import { google, admin_directory_v1 } from 'googleapis';
 import chalk from 'chalk';
 
 import { WebClient } from '@slack/web-api';
+import { SHERIFF_GSUITE_DOMAIN, SLACK_TOKEN } from '../../../constants';
 
 interface UserGroup {
   id: string;
@@ -25,7 +25,7 @@ interface SlackUser {
   sheriff_username: string;
 }
 
-const client = new WebClient(process.env.SLACK_TOKEN!);
+const client = new WebClient(SLACK_TOKEN);
 
 const getAllGroups = memoize(async () => {
   const result = await client.usergroups.list({
@@ -49,10 +49,7 @@ const getAllUsers = memoize(async () => {
         member.deleted
       )
         continue;
-      if (
-        !member.profile.email ||
-        !member.profile.email.endsWith(`@${process.env.SHERIFF_GSUITE_DOMAIN}`)
-      )
+      if (!member.profile.email || !member.profile.email.endsWith(`@${SHERIFF_GSUITE_DOMAIN}`))
         continue;
       const username = member.profile.email.split('@')[0].toLowerCase();
       member.sheriff_username = username;
