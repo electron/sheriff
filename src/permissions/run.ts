@@ -856,7 +856,8 @@ async function checkRepository(
           'to',
           chalk.magenta(supposedLevel),
         );
-        if (!IS_DRY_RUN)
+        if (!IS_DRY_RUN) {
+          const octokit = await getOctokit();
           await octokit.teams.addOrUpdateRepoPermissionsInOrg({
             team_slug: currentTeam.slug,
             org: config.organization,
@@ -864,6 +865,7 @@ async function checkRepository(
             repo: repo.name,
             permission: sheriffLevelToGitHubLevel(supposedLevel),
           });
+        }
       }
     }
   }
