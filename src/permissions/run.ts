@@ -40,15 +40,13 @@ const sheriffLevelToGitHubLevel = (acessLevel: AccessLevel): GitHubAccessLevel =
   throw new Error(`Attempted to convert unknown github access level "${acessLevel}"`);
 };
 
-const gitHubPermissionsToSheriffLevel = (
-  gitHubPermissions: {
-    pull: boolean;
-    triage?: boolean;
-    push: boolean;
-    maintain?: boolean;
-    admin: boolean;
-  },
-): AccessLevel => {
+const gitHubPermissionsToSheriffLevel = (gitHubPermissions: {
+  pull: boolean;
+  triage?: boolean;
+  push: boolean;
+  maintain?: boolean;
+  admin: boolean;
+}): AccessLevel => {
   if (gitHubPermissions.admin) return 'admin';
   if (gitHubPermissions.maintain) return 'maintain';
   if (gitHubPermissions.push) return 'write';
@@ -180,7 +178,10 @@ const validateConfigFast = async (config: PermissionsConfig) => {
           .pattern(Joi.string(), Joi.string().only('read', 'triage', 'write', 'maintain', 'admin'))
           .optional(),
         external_collaborators: Joi.object()
-          .pattern(Joi.string().min(1), Joi.string().only('read', 'triage', 'write', 'maintain', 'admin'))
+          .pattern(
+            Joi.string().min(1),
+            Joi.string().only('read', 'triage', 'write', 'maintain', 'admin'),
+          )
           .optional(),
         settings: Joi.object({
           has_wiki: Joi.boolean(),
@@ -387,11 +388,11 @@ async function main() {
   }
 
   await new Promise<void>((resolve, reject) => {
-    q.start((err) => {
+    q.start(err => {
       if (err) return reject(err);
 
       resolve();
-    })
+    });
   });
 
   for (const repo of reposToCheck) {
@@ -402,39 +403,31 @@ async function main() {
 }
 
 const listAllOrgOwners = memoize(function(config: PermissionsConfig) {
-  return octokit.paginate(
-    octokit.orgs.listMembers, {
-      org: config.organization,
-      role: 'admin',
-    },
-  );
+  return octokit.paginate(octokit.orgs.listMembers, {
+    org: config.organization,
+    role: 'admin',
+  });
 });
 
 const listAllOrgMembersAndOwners = memoize(function(config: PermissionsConfig) {
-  return octokit.paginate(
-    octokit.orgs.listMembers, {
-      org: config.organization,
-    },
-  );
+  return octokit.paginate(octokit.orgs.listMembers, {
+    org: config.organization,
+  });
 });
 
 const listAllTeams = memoize(function(config: PermissionsConfig) {
-  return octokit.paginate(
-    octokit.teams.list, {
-      org: config.organization,
-      headers: {
-        Accept: 'application/vnd.github.hellcat-preview+json',
-      },
+  return octokit.paginate(octokit.teams.list, {
+    org: config.organization,
+    headers: {
+      Accept: 'application/vnd.github.hellcat-preview+json',
     },
-  );
+  });
 });
 
 const listAllOrgRepos = memoize(async function(config: PermissionsConfig) {
-  const repos = await (octokit.paginate(
-    octokit.repos.listForOrg, {
-      org: config.organization,
-    },
-  ));
+  const repos = await octokit.paginate(octokit.repos.listForOrg, {
+    org: config.organization,
+  });
 
   const securityRepoPattern = /^[\w]+-ghsa-[A-Za-z0-9-]{4}-[A-Za-z0-9-]{4}-[A-Za-z0-9-]{4}$/;
   return repos.filter(r => {
@@ -586,8 +579,14 @@ async function checkTeam(builder: MessageBuilder, config: PermissionsConfig, tea
         role: 'MAINTAINER',
       }) as any,
     ]);
-    currentMembers = memberRes.organization.team.members.nodes as Array<{ id: number, login: string }>;
-    currentMaintainers = maintainerRes.organization.team.members.nodes as Array<{ id: number, login: string }>;
+    currentMembers = memberRes.organization.team.members.nodes as Array<{
+      id: number;
+      login: string;
+    }>;
+    currentMaintainers = maintainerRes.organization.team.members.nodes as Array<{
+      id: number;
+      login: string;
+    }>;
   }
 
   for (const currentMaintainer of currentMaintainers) {
@@ -755,37 +754,31 @@ async function checkTeam(builder: MessageBuilder, config: PermissionsConfig, tea
 
 type ResolveType<T extends Promise<any>> = T extends Promise<infer V> ? V : never;
 
-const metadata = new Map<RepositoryConfig, ResolveType<ReturnType<typeof loadRepositoryMetadata>>>();
+const metadata = new Map<
+  RepositoryConfig,
+  ResolveType<ReturnType<typeof loadRepositoryMetadata>>
+>();
 async function loadRepositoryMetadata(config: PermissionsConfig, repo: RepositoryConfig) {
   const [currentTeams, currentInvites, currentCollaborators] = await Promise.all([
-    (octokit.paginate(
-      octokit.repos.listTeams, {
-        owner: config.organization,
-        repo: repo.name,
-      },
-    )),
-    (octokit.paginate(
-      octokit.repos.listInvitations, {
-        owner: config.organization,
-        repo: repo.name,
-      },
-    )),
-    (octokit.paginate(
-      octokit.repos.listCollaborators, {
-        owner: config.organization,
-        repo: repo.name,
-        affiliation: 'direct',
-      },
-    ))
+    octokit.paginate(octokit.repos.listTeams, {
+      owner: config.organization,
+      repo: repo.name,
+    }),
+    octokit.paginate(octokit.repos.listInvitations, {
+      owner: config.organization,
+      repo: repo.name,
+    }),
+    octokit.paginate(octokit.repos.listCollaborators, {
+      owner: config.organization,
+      repo: repo.name,
+      affiliation: 'direct',
+    }),
   ]);
 
-  return { currentTeams, currentInvites, currentCollaborators}
+  return { currentTeams, currentInvites, currentCollaborators };
 }
 
-async function preloadRepositoryMetadata(
-  config: PermissionsConfig,
-  repo: RepositoryConfig,
-) {
+async function preloadRepositoryMetadata(config: PermissionsConfig, repo: RepositoryConfig) {
   if (metadata.has(repo)) return;
 
   metadata.set(repo, await loadRepositoryMetadata(config, repo));
@@ -805,9 +798,7 @@ async function checkRepository(
       builder.addContext(
         `:fire: Removing \`${currentTeam.name}\` team from repo \`${
           repo.name
-        }\` used to have \`${gitHubPermissionsToSheriffLevel(
-          currentTeam.permissions!,
-        )}\``,
+        }\` used to have \`${gitHubPermissionsToSheriffLevel(currentTeam.permissions!)}\``,
       );
       console.info(
         chalk.red('Removing'),

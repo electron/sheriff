@@ -39,7 +39,7 @@ export const memoize = <A extends any[], T>(
   (f as any).invalidate = () => {
     val = null;
   };
-  return f as any as ((...args: A) => Promise<T>) & { invalidate: () => void };
+  return (f as any) as ((...args: A) => Promise<T>) & { invalidate: () => void };
 };
 
 export const IS_DRY_RUN = !process.argv.includes('--do-it-for-real-this-time');
