@@ -5,11 +5,7 @@ import {
   getAuthOptionsForRepo,
   getTokenForRepo,
 } from '@electron/github-app-auth';
-import {
-  SHERIFF_GITHUB_APP_CREDS,
-  ORGANIZATION_NAME,
-  REPO_NAME
-} from './constants';
+import { SHERIFF_GITHUB_APP_CREDS, ORGANIZATION_NAME, REPO_NAME } from './constants';
 
 require('dotenv-safe').config();
 
@@ -31,10 +27,13 @@ export async function getOctokit() {
 
 export async function graphyOctokit() {
   const creds = appCredentialsFromString(SHERIFF_GITHUB_APP_CREDS!);
-  const token = await getTokenForRepo({
-    owner: ORGANIZATION_NAME,
-    name: REPO_NAME
-  }, creds);
+  const token = await getTokenForRepo(
+    {
+      owner: ORGANIZATION_NAME,
+      name: REPO_NAME,
+    },
+    creds,
+  );
   return graphql.defaults({
     headers: {
       authorization: `token ${token}`,

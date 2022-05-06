@@ -8,7 +8,7 @@ export const PERMISSIONS_FILE_ORG = process.env.PERMISSIONS_FILE_ORG;
 export const PERMISSIONS_FILE_REPO = process.env.PERMISSIONS_FILE_REPO || '.permissions';
 export const PERMISSIONS_FILE_PATH = process.env.PERMISSIONS_FILE_PATH || 'config.yaml';
 
-export const SHERIFF_IMPORTANT_BRANCH  = process.env.SHERIFF_IMPORTANT_BRANCH;
+export const SHERIFF_IMPORTANT_BRANCH = process.env.SHERIFF_IMPORTANT_BRANCH;
 
 export const AUTO_TUNNEL_NGROK = process.env.AUTO_TUNNEL_NGROK;
 export const PORT = process.env.PORT || 8080;

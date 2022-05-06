@@ -3,9 +3,7 @@ import { RepositoryCreatedEvent } from '@octokit/webhooks-types';
 import { KnownBlock } from '@slack/types';
 import { AUTO_TUNNEL_NGROK, SHERIFF_HOST_URL, SLACK_WEBHOOK_URL } from './constants';
 
-const HOST = AUTO_TUNNEL_NGROK
-  ? `https://${AUTO_TUNNEL_NGROK}.ngrok.io`
-  : SHERIFF_HOST_URL;
+const HOST = AUTO_TUNNEL_NGROK ? `https://${AUTO_TUNNEL_NGROK}.ngrok.io` : SHERIFF_HOST_URL;
 
 const hook = new IncomingWebhook(SLACK_WEBHOOK_URL!);
 

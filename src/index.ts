@@ -8,7 +8,12 @@ import { Webhooks as WebhooksApi, createNodeMiddleware } from '@octokit/webhooks
 import { isMainRepo, hook } from './helpers';
 import { MessageBuilder, createMessageBlock, createMarkdownBlock } from './MessageBuilder';
 import { getOctokit } from './octokit';
-import { AUTO_TUNNEL_NGROK, GITHUB_WEBHOOK_SECRET, PORT, SHERIFF_IMPORTANT_BRANCH } from './constants';
+import {
+  AUTO_TUNNEL_NGROK,
+  GITHUB_WEBHOOK_SECRET,
+  PORT,
+  SHERIFF_IMPORTANT_BRANCH,
+} from './constants';
 
 const webhooks = new WebhooksApi({
   secret: GITHUB_WEBHOOK_SECRET,
@@ -20,7 +25,8 @@ webhooks.onAny(
   }),
 );
 
-const importantBranchMatcher = () => SHERIFF_IMPORTANT_BRANCH ? new RegExp('(^[0-9]+-[0-9]+-x$)|(^[0-9]+-x-y$)') : null;
+const importantBranchMatcher = () =>
+  SHERIFF_IMPORTANT_BRANCH ? new RegExp('(^[0-9]+-[0-9]+-x$)|(^[0-9]+-x-y$)') : null;
 
 webhooks.on(
   'delete',

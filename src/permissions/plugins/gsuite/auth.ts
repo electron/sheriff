@@ -17,9 +17,7 @@ export function getAuthorizedClient() {
   if (!GSUITE_TOKEN) {
     throw new Error('Missing GSUITE_TOKEN environment variable');
   }
-  oauth2Client.credentials = JSON.parse(
-    Buffer.from(GSUITE_TOKEN!, 'base64').toString(),
-  );
+  oauth2Client.credentials = JSON.parse(Buffer.from(GSUITE_TOKEN!, 'base64').toString());
   return oauth2Client;
 }
 

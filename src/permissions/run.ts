@@ -406,44 +406,36 @@ async function main() {
   if (!IS_DRY_RUN) await builder.send();
 }
 
-const listAllOrgOwners = memoize( async (config: PermissionsConfig) => {
+const listAllOrgOwners = memoize(async (config: PermissionsConfig) => {
   const octokit = await getOctokit();
-  return octokit.paginate(
-    octokit.orgs.listMembers, {
-      org: config.organization,
-      role: 'admin',
-    },
-  );
+  return octokit.paginate(octokit.orgs.listMembers, {
+    org: config.organization,
+    role: 'admin',
+  });
 });
 
-const listAllOrgMembersAndOwners = memoize( async (config: PermissionsConfig) => {
+const listAllOrgMembersAndOwners = memoize(async (config: PermissionsConfig) => {
   const octokit = await getOctokit();
-  return octokit.paginate(
-    octokit.orgs.listMembers, {
-      org: config.organization,
-    },
-  );
+  return octokit.paginate(octokit.orgs.listMembers, {
+    org: config.organization,
+  });
 });
 
 const listAllTeams = memoize(async (config: PermissionsConfig) => {
   const octokit = await getOctokit();
-  return octokit.paginate(
-    octokit.teams.list, {
-      org: config.organization,
-      headers: {
-        Accept: 'application/vnd.github.hellcat-preview+json',
-      },
+  return octokit.paginate(octokit.teams.list, {
+    org: config.organization,
+    headers: {
+      Accept: 'application/vnd.github.hellcat-preview+json',
     },
-  );
+  });
 });
 
 const listAllOrgRepos = memoize(async (config: PermissionsConfig) => {
   const octokit = await getOctokit();
-  const repos = await (octokit.paginate(
-    octokit.repos.listForOrg, {
-      org: config.organization,
-    },
-  ));
+  const repos = await octokit.paginate(octokit.repos.listForOrg, {
+    org: config.organization,
+  });
 
   const securityRepoPattern = /^[\w]+-ghsa-[A-Za-z0-9-]{4}-[A-Za-z0-9-]{4}-[A-Za-z0-9-]{4}$/;
   return repos.filter(r => {
@@ -893,7 +885,7 @@ async function checkRepository(
           permission: sheriffLevelToGitHubLevel(repo.teams[supposedTeamName]),
           org: config.organization,
           team_slug: (await findTeamByName(builder, config, supposedTeamName)).slug,
-        }); 
+        });
       }
     }
   }

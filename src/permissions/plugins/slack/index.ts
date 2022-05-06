@@ -49,10 +49,7 @@ const getAllUsers = memoize(async () => {
         member.deleted
       )
         continue;
-      if (
-        !member.profile.email ||
-        !member.profile.email.endsWith(`@${SHERIFF_GSUITE_DOMAIN}`)
-      )
+      if (!member.profile.email || !member.profile.email.endsWith(`@${SHERIFF_GSUITE_DOMAIN}`))
         continue;
       const username = member.profile.email.split('@')[0].toLowerCase();
       member.sheriff_username = username;
