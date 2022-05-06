@@ -29,9 +29,9 @@ export async function getOctokit() {
   return octokit;
 }
 
-export function graphyOctokit() {
+export async function graphyOctokit() {
   const creds = appCredentialsFromString(SHERIFF_GITHUB_APP_CREDS!);
-  const token = getTokenForRepo({
+  const token = await getTokenForRepo({
     owner: ORGANIZATION_NAME,
     name: REPO_NAME
   }, creds);
