@@ -584,14 +584,15 @@ async function checkTeam(builder: MessageBuilder, config: PermissionsConfig, tea
       }
     }
     `;
+    const gql = await graphyOctokit();
     const [memberRes, maintainerRes] = await Promise.all([
-      graphyOctokit(query, {
+      gql(query, {
         org: config.organization,
         team: octoTeam.slug,
         role: 'MEMBER',
         // team_node_id: octoTeam.node_id,
       }) as any,
-      graphyOctokit(query, {
+      gql(query, {
         org: config.organization,
         team: octoTeam.slug,
         role: 'MAINTAINER',

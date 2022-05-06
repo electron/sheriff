@@ -3,6 +3,7 @@ import { Octokit } from '@octokit/rest';
 import {
   appCredentialsFromString,
   getAuthOptionsForRepo,
+  getTokenForRepo,
 } from '@electron/github-app-auth';
 import {
   GITHUB_APP_PRIVATE_KEY,
@@ -28,8 +29,15 @@ export async function getOctokit() {
   return octokit;
 }
 
-export const graphyOctokit = graphql.defaults({
-  headers: {
-    authorization: `token ${process.env.GITHUB_TOKEN!}`,
-  },
-});
+export function graphyOctokit() {
+  const creds = appCredentialsFromString(GITHUB_APP_PRIVATE_KEY!);
+  const token = getTokenForRepo({
+    owner: ORGANIZATION_NAME,
+    name: REPO_NAME
+  }, creds);
+  return graphql.defaults({
+    headers: {
+      authorization: `token ${token}`,
+    },
+  });
+}
