@@ -1,5 +1,6 @@
 import * as readline from 'readline';
 import { google } from 'googleapis';
+import { GSUITE_CREDENTIALS, GSUITE_TOKEN } from '../../../constants';
 
 const SCOPES = [
   'https://www.googleapis.com/auth/admin.directory.user',
@@ -7,17 +8,17 @@ const SCOPES = [
   'https://www.googleapis.com/auth/apps.groups.settings',
 ];
 
-const credentials = JSON.parse(Buffer.from(process.env.GSUITE_CREDENTIALS!, 'base64').toString());
+const credentials = JSON.parse(Buffer.from(GSUITE_CREDENTIALS!, 'base64').toString());
 
 export function getAuthorizedClient() {
   const { client_secret, client_id, redirect_uris } = credentials.installed;
   const oauth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
 
-  if (!process.env.GSUITE_TOKEN) {
+  if (!GSUITE_TOKEN) {
     throw new Error('Missing GSUITE_TOKEN environment variable');
   }
   oauth2Client.credentials = JSON.parse(
-    Buffer.from(process.env.GSUITE_TOKEN!, 'base64').toString(),
+    Buffer.from(GSUITE_TOKEN!, 'base64').toString(),
   );
   return oauth2Client;
 }

@@ -5,8 +5,7 @@ import { getAuthorizedClient } from './auth';
 import { google, admin_directory_v1 } from 'googleapis';
 import chalk from 'chalk';
 import { privacySettings } from './privacy';
-
-const DOMAIN = process.env.SHERIFF_GSUITE_DOMAIN;
+import { SHERIFF_GSUITE_DOMAIN, SHERIFF_SLACK_DOMAIN } from '../../../constants';
 
 const getService = memoize(async () =>
   google.admin({ version: 'directory_v1', auth: getAuthorizedClient() }),
@@ -15,7 +14,7 @@ const getAllDirectoryUsers = memoize(async () => {
   const service = await getService();
   const list = async (pageToken?: string): Promise<admin_directory_v1.Schema$User[]> => {
     const users = await service.users.list({
-      domain: DOMAIN,
+      domain: SHERIFF_GSUITE_DOMAIN,
       pageToken,
     });
     if (users.data.nextPageToken) {
@@ -29,7 +28,7 @@ const getAllDirectoryGroups = memoize(async () => {
   const service = await getService();
   const list = async (pageToken?: string): Promise<admin_directory_v1.Schema$Group[]> => {
     const groups = await service.groups.list({
-      domain: DOMAIN,
+      domain: SHERIFF_GSUITE_DOMAIN,
       pageToken,
     });
     if (groups.data.nextPageToken) {
@@ -60,7 +59,7 @@ class GSuitePlugin implements Plugin {
 
     const users = await getAllDirectoryUsers();
     const groups = await getAllDirectoryGroups();
-    const expectedEmail = `${team.name}@${DOMAIN}`;
+    const expectedEmail = `${team.name}@${SHERIFF_GSUITE_DOMAIN}`;
     let existingGroup = groups.find(g => g.email === expectedEmail);
 
     if (!team.gsuite) {
@@ -122,8 +121,8 @@ class GSuitePlugin implements Plugin {
       ) {
         // Ignore slack notification emails, we need those
         if (
-          !process.env.SHERIFF_SLACK_DOMAIN ||
-          !member.email!.endsWith(`@${process.env.SHERIFF_SLACK_DOMAIN}.slack.com`)
+          !SHERIFF_SLACK_DOMAIN ||
+          !member.email!.endsWith(`@${SHERIFF_SLACK_DOMAIN}.slack.com`)
         ) {
           builder.addContext(
             `:skull_and_crossbones: Evicting \`${member.email}\` out of GSuite group \`${expectedEmail}\``,
@@ -200,7 +199,7 @@ class GSuitePlugin implements Plugin {
       if (existingMembers.find(m => m.email!.split('@')[0].toLowerCase() === member.toLowerCase()))
         continue;
 
-      const memberEmail = `${member.toLowerCase()}@${DOMAIN}`;
+      const memberEmail = `${member.toLowerCase()}@${SHERIFF_GSUITE_DOMAIN}`;
       if (!users.some(u => u.primaryEmail === memberEmail)) continue;
 
       // Add new members
@@ -230,7 +229,7 @@ class GSuitePlugin implements Plugin {
       if (existingMembers.find(m => m.email!.split('@')[0].toLowerCase() === member.toLowerCase()))
         continue;
 
-      const memberEmail = `${member.toLowerCase()}@${DOMAIN}`;
+      const memberEmail = `${member.toLowerCase()}@${SHERIFF_GSUITE_DOMAIN}`;
       if (!users.some(u => u.primaryEmail === memberEmail)) continue;
 
       // Add new owners
