@@ -157,11 +157,14 @@ webhooks.on(
           `A new member was just invited to the "${event.payload.organization.login}" organization`,
         ),
       )
-      .addUser({
-        login: invitedLogin,
-        html_url: `https://github.com/${invitedLogin}`,
-        avatar_url: `https://github.com/${invitedLogin}.png`,
-      }, 'Invited Member')
+      .addUser(
+        {
+          login: invitedLogin,
+          html_url: `https://github.com/${invitedLogin}`,
+          avatar_url: `https://github.com/${invitedLogin}.png`,
+        },
+        'Invited Member',
+      )
       .addBlame(event.payload.sender)
       .addSeverity('normal')
       .send();
@@ -262,9 +265,11 @@ const app = express();
 
 app.use('/static', express.static(path.resolve(__dirname, '../static')));
 
-app.use(createNodeMiddleware(webhooks, {
-  path: '/'
-}));
+app.use(
+  createNodeMiddleware(webhooks, {
+    path: '/',
+  }),
+);
 
 const server = app.listen(process.env.PORT || 8080, async () => {
   const port = (server.address() as AddressInfo).port;

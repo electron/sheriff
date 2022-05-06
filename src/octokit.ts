@@ -10,7 +10,7 @@ export const octokit = new Octokit({
     appId: process.env.GITHUB_APP_ID,
     privateKey: Buffer.from(process.env.GITHUB_APP_PRIVATE_KEY!, 'base64').toString('utf8'),
     installationId: process.env.GITHUB_INSTALLATION_ID,
-  }
+  },
 });
 
 export const graphyOctokit = graphql.defaults({

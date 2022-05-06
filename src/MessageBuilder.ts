@@ -40,7 +40,10 @@ export class MessageBuilder {
     return new MessageBuilder();
   }
 
-  public addRepositoryAndBlame(repository: RepositoryCreatedEvent['repository'], user: MinimalUserInfo) {
+  public addRepositoryAndBlame(
+    repository: RepositoryCreatedEvent['repository'],
+    user: MinimalUserInfo,
+  ) {
     this.divide();
     this.addRepositoryContext(repository);
     this.divide();
