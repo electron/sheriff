@@ -78,7 +78,6 @@ The following environment variables represent the configuration of the actual Sh
 
 | Name | Required | Value | For Plugin |
 |------|----------|-------|------------|
-| `GITHUB_TOKEN` | ✔️ | A personal access token for an organization owner with the `repo` scope | |
 | `PERMISSIONS_FILE_ORG` | ✔️ | The name of the GitHub org where you put the `.permissions` repository | |
 | `GITHUB_WEBHOOK_SECRET` | ✔️ | The secret for the org-wide webhook you configured earlier | |
 | `SLACK_TOKEN` | ✔️ | The token for your Slack App you created earlier | |
@@ -86,6 +85,7 @@ The following environment variables represent the configuration of the actual Sh
 | `SHERIFF_HOST_URL` | ✔️ | The fully qualified URL for your deployed webhook | |
 | `SHERIFF_PLUGINS` | | A comma separated list of plugins to enable.  Possible plugins are `gsuite` and `slack` | |
 | `SHERIFF_IMPORTANT_BRANCH` | | A regular expression to match important branches you want to monitor for deletion | |
+| `SHERIFF_GITHUB_APP_CREDS` | ✔️ | Private key credentials generated for a GitHub App. ||
 | `GSUITE_CREDENTIALS` | | GSuite credentials | `gsuite` |
 | `GSUITE_TOKEN` | | GSuite authentication token | `gsuite` |
 | `SHERIFF_GSUITE_DOMAIN` | | The primary domain of your GSuite account | `gsuite` `slack` |
