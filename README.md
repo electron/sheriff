@@ -131,9 +131,9 @@ teams:
 repositories:
   - name: <repo name>
     teams:
-      <team_name>: read | write | admin
+      <team_name>: read | triage | write | maintain | admin
     external_collaborators:
-      <gh_username>: read | write | admin
+      <gh_username>: read | triage | write | maintain | admin
 ```
 
 ## Deployment Recommendations
