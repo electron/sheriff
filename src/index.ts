@@ -34,8 +34,10 @@ webhooks.on(
     if (event.payload.ref_type === 'tag') {
       // Deleted a tag
       const deletedTag = event.payload.ref;
+      const text = `An existing tag was just deleted: ${deletedTag}`;
       await MessageBuilder.create()
-        .addBlock(createMessageBlock(`An existing tag was just deleted: ${deletedTag}`))
+        .setNotificationContent(text)
+        .addBlock(createMessageBlock(text))
         .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
         .addSeverity('warning')
         .send();
@@ -44,12 +46,10 @@ webhooks.on(
       const matcher = importantBranchMatcher();
       if (isMainRepo(event.payload.repository) && matcher && matcher.test(deletedBranch)) {
         // Deleted a release branch
+        const text = `A branch dedicated to an important release line was just removed: ${deletedBranch}`;
         await MessageBuilder.create()
-          .addBlock(
-            createMessageBlock(
-              `A branch dedicated to an important release line was just removed: ${deletedBranch}`,
-            ),
-          )
+          .setNotificationContent(text)
+          .addBlock(createMessageBlock(text))
           .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
           .addSeverity('critical')
           .send();
@@ -63,23 +63,19 @@ webhooks.on(
   hook(async event => {
     if (!event.payload.key.read_only) {
       // Write access deploy key
+      const text = `A deploy key with name "${event.payload.key.title}" was just created with write access`;
       await MessageBuilder.create()
-        .addBlock(
-          createMessageBlock(
-            `A deploy key with name "${event.payload.key.title}" was just created with write access`,
-          ),
-        )
+        .setNotificationContent(text)
+        .addBlock(createMessageBlock(text))
         .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
         .addSeverity('critical')
         .send();
     } else if (event.payload.repository.private) {
       // Read access deploy key to a private repo
+      const text = `A deploy key with name "${event.payload.key.title}" was just created with read access to a private repository`;
       await MessageBuilder.create()
-        .addBlock(
-          createMessageBlock(
-            `A deploy key with name "${event.payload.key.title}" was just created with read access to a private repository`,
-          ),
-        )
+        .setNotificationContent(text)
+        .addBlock(createMessageBlock(text))
         .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
         .addSeverity('warning')
         .send();
@@ -90,9 +86,10 @@ webhooks.on(
 webhooks.on(
   'member.added',
   hook(async event => {
-    // Collaborator added to repo
+    const text = 'A new collaborator was added to a repository';
     await MessageBuilder.create()
-      .addBlock(createMessageBlock(`A new collaborator was added to a repository`))
+      .setNotificationContent(text)
+      .addBlock(createMessageBlock(text))
       .addUser(event.payload.member, 'Collaborator')
       .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
       .addSeverity('warning')
@@ -103,9 +100,10 @@ webhooks.on(
 webhooks.on(
   'member.removed',
   hook(async event => {
-    // Collaborator removed from repo
+    const text = 'A collaborator was removed from a repository';
     await MessageBuilder.create()
-      .addBlock(createMessageBlock(`A collaborator was removed from a repository`))
+      .setNotificationContent(text)
+      .addBlock(createMessageBlock(text))
       .addUser(event.payload.member, 'Collaborator')
       .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
       .addSeverity('normal')
@@ -126,12 +124,10 @@ webhooks.on(
       username: event.payload.member.login,
     });
     const newPermission = newPermissionLevel.data.permission;
+    const text = `A collaborators permission level was changed on a repository from \`${originalPermission}\` :arrow_right: \`${newPermission}\``;
     await MessageBuilder.create()
-      .addBlock(
-        createMarkdownBlock(
-          `A collaborators permission level was changed on a repository from \`${originalPermission}\` :arrow_right: \`${newPermission}\``,
-        ),
-      )
+      .setNotificationContent(text)
+      .addBlock(createMessageBlock(text))
       .addUser(event.payload.member, 'Collaborator')
       .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
       .addSeverity(
@@ -144,10 +140,10 @@ webhooks.on(
 webhooks.on(
   'meta.deleted',
   hook(async event => {
+    const text = 'The org-wide webhook powering Electron Sheriff was just deleted!!!!';
     await MessageBuilder.create()
-      .addBlock(
-        createMessageBlock('The org-wide webhook powering Electron Sheriff was just deleted!!!!'),
-      )
+      .setNotificationContent(text)
+      .addBlock(createMessageBlock(text))
       .addBlame(event.payload.sender)
       .addSeverity('critical')
       .send();
@@ -158,12 +154,10 @@ webhooks.on(
   'organization.member_invited',
   hook(async event => {
     const invitedLogin = event.payload.invitation.login;
+    const text = `A new member was just invited to the "${event.payload.organization.login}" organization`;
     await MessageBuilder.create()
-      .addBlock(
-        createMessageBlock(
-          `A new member was just invited to the "${event.payload.organization.login}" organization`,
-        ),
-      )
+      .setNotificationContent(text)
+      .addBlock(createMessageBlock(text))
       .addUser(
         {
           login: invitedLogin,
@@ -181,12 +175,10 @@ webhooks.on(
 webhooks.on(
   'organization.member_added',
   hook(async event => {
+    const text = `A new member was just added to the "${event.payload.organization.login}" organization`;
     await MessageBuilder.create()
-      .addBlock(
-        createMessageBlock(
-          `A new member was just added to the "${event.payload.organization.login}" organization`,
-        ),
-      )
+      .setNotificationContent(text)
+      .addBlock(createMessageBlock(text))
       .addUser(event.payload.membership.user, 'New Member')
       .addBlame(event.payload.sender)
       .addSeverity('normal')
@@ -197,12 +189,10 @@ webhooks.on(
 webhooks.on(
   'organization.member_removed',
   hook(async event => {
+    const text = `A member was just removed from the "${event.payload.organization.login}" organization`;
     await MessageBuilder.create()
-      .addBlock(
-        createMessageBlock(
-          `A member was just removed from the "${event.payload.organization.login}" organization`,
-        ),
-      )
+      .setNotificationContent(text)
+      .addBlock(createMessageBlock(text))
       .addUser(event.payload.membership.user, 'Removed Member')
       .addBlame(event.payload.sender)
       .addSeverity('normal')
@@ -213,12 +203,10 @@ webhooks.on(
 webhooks.on(
   'organization.renamed',
   hook(async event => {
+    const text = `The organization was just renamed to \`${event.payload.organization.login}\`, this is incredibly unexpected`;
     await MessageBuilder.create()
-      .addBlock(
-        createMessageBlock(
-          `The organization was just renamed to \`${event.payload.organization.login}\`, this is incredibly unexpected`,
-        ),
-      )
+      .setNotificationContent(text)
+      .addBlock(createMessageBlock(text))
       .addBlame(event.payload.sender)
       .addSeverity('critical')
       .send();
@@ -228,8 +216,10 @@ webhooks.on(
 webhooks.on(
   'public',
   hook(async event => {
+    const text = 'A private repository was just made public';
     await MessageBuilder.create()
-      .addBlock(createMessageBlock(`A private repository was just made public`))
+      .setNotificationContent(text)
+      .addBlock(createMessageBlock(text))
       .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
       .addSeverity('warning')
       .send();
@@ -241,11 +231,8 @@ webhooks.on(
   hook(async event => {
     const message = MessageBuilder.create();
     let severity: 'critical' | 'warning' | 'normal' = 'normal';
-    message.addBlock(
-      createMessageBlock(
-        `The "${event.payload.release.name}" release was just ${event.payload.action}`,
-      ),
-    );
+    const text = `The "${event.payload.release.name}" release was just ${event.payload.action}`;
+    message.addBlock(createMessageBlock(text));
     switch (event.payload.action) {
       case 'deleted':
         severity = 'critical';
@@ -262,6 +249,7 @@ webhooks.on(
         return;
     }
     await message
+      .setNotificationContent(text)
       .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
       .addSeverity(severity)
       .send();

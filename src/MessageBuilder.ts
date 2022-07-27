@@ -131,7 +131,7 @@ export class MessageBuilder {
   public addSeverity(severity: 'normal' | 'warning' | 'critical') {
     switch (severity) {
       case 'normal':
-        this.addBlock({
+        return this.addBlock({
           type: 'context',
           elements: [
             {
@@ -145,10 +145,8 @@ export class MessageBuilder {
             },
           ],
         });
-        break;
       case 'warning':
         return this.addWarning('*This alert is considered a warning, please look into it*');
-        break;
       case 'critical':
         return this.addCritical(
           '*This alert is considered critical, please investigate immediately @channel*',
@@ -161,6 +159,11 @@ export class MessageBuilder {
     this.addBlock({
       type: 'divider',
     });
+    return this;
+  }
+
+  public setNotificationContent(message: string) {
+    this.state.text = message;
     return this;
   }
 
