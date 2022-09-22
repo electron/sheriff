@@ -71,6 +71,7 @@ interface RepositoryConfig {
    */
   external_collaborators: Record<string, AccessLevel>;
   settings?: Partial<RepoSettings>;
+  visibility?: 'public' | 'private';
 }
 
 interface RepoSettings {
@@ -187,7 +188,8 @@ const validateConfigFast = async (config: PermissionsConfig) => {
           .optional(),
         settings: Joi.object({
           has_wiki: Joi.boolean(),
-        }),
+        }).optional(),
+        visibility: Joi.string().only('public', 'private').optional(),
       })
       .required(),
   });
@@ -1017,6 +1019,21 @@ async function checkRepository(
         owner: config.organization,
         repo: octoRepo.name,
         has_wiki: computedSettings.has_wiki,
+      });
+    }
+  }
+
+  const repoVisibility = repo.visibility || 'public';
+  const shouldBePrivate = repoVisibility === 'private';
+  if (octoRepo.private !== shouldBePrivate) {
+    builder.addContext(`:ninja: Updating repository visibility for \`${octoRepo.name}\` to \`${repoVisibility}\``);
+    console.info(chalk.yellow('Updating repository visibility for'), chalk.cyan(octoRepo.name), 'to', chalk.magenta(repoVisibility));
+    if (!IS_DRY_RUN) {
+      const octokit = await getOctokit();
+      await octokit.repos.update({
+        owner: config.organization,
+        repo: octoRepo.name,
+        private: shouldBePrivate,
       });
     }
   }
