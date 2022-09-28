@@ -375,6 +375,7 @@ async function main() {
         org: config.organization,
         name: repo.name,
         has_wiki: false,
+        visibility: repo.visibility,
       })).data as GetResponseDataTypeFromEndpointMethod<typeof octokit.repos.listForOrg>[0];
     }
     // If it is archived we can not update permissions but it should still
