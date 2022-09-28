@@ -333,18 +333,14 @@ async function main() {
     r => !allRepos.find(repo => r.name === repo.name),
   );
   for (const repoNotInTargetOrg of reposNotInTargetOrg) {
-    builder.addCritical(
-      `Repository in config is not in the target org: ${repoNotInTargetOrg.name}`,
+    builder.addWarning(
+      `Repository in config is not in the target org: ${repoNotInTargetOrg.name} it will be created`,
     );
     console.error(
-      chalk.red('ERROR'),
+      chalk.yellow('WARNING:'),
       'Repository in config is not in the target org:',
       chalk.cyan(repoNotInTargetOrg.name),
     );
-  }
-
-  if (reposNotInTargetOrg.length) {
-    return await builder.send();
   }
 
   const missingConfigTeams = allTeams.filter(t => !config.teams.find(team => team.name === t.name));
