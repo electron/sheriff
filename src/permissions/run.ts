@@ -324,6 +324,7 @@ async function main() {
       name: missingConfigRepo.name,
       teams: {},
       external_collaborators: {},
+      visibility: 'private',
     });
   }
 
