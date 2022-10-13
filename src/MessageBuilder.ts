@@ -32,11 +32,17 @@ export const createMarkdownBlock = (msg: string): KnownBlock => ({
 
 export class MessageBuilder {
   private state: IncomingWebhookSendArguments = {};
+  private eventPayload: unknown = null;
 
   private constructor() {}
 
   public static create() {
     return new MessageBuilder();
+  }
+
+  public setEventPayload(eventPayload: unknown) {
+    this.eventPayload = eventPayload;
+    return this;
   }
 
   public addRepositoryAndBlame(
@@ -184,6 +190,7 @@ export class MessageBuilder {
       const state = {
         ...rest,
         blocks: allBlocks.splice(0, 50),
+        ...(this.eventPayload ? { metadata: this.eventPayload } : {}),
       };
       await hook.send(state);
     }

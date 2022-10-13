@@ -48,6 +48,7 @@ webhooks.on(
         // Deleted a release branch
         const text = `A branch dedicated to an important release line was just removed: ${deletedBranch}`;
         await MessageBuilder.create()
+          .setEventPayload(event)
           .setNotificationContent(text)
           .addBlock(createMessageBlock(text))
           .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
@@ -74,6 +75,7 @@ webhooks.on(
       // Read access deploy key to a private repo
       const text = `A deploy key with name "${event.payload.key.title}" was just created with read access to a private repository`;
       await MessageBuilder.create()
+        .setEventPayload(event)
         .setNotificationContent(text)
         .addBlock(createMessageBlock(text))
         .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
@@ -88,6 +90,7 @@ webhooks.on(
   hook(async event => {
     const text = 'A new collaborator was added to a repository';
     await MessageBuilder.create()
+      .setEventPayload(event)
       .setNotificationContent(text)
       .addBlock(createMessageBlock(text))
       .addUser(event.payload.member, 'Collaborator')
@@ -102,6 +105,7 @@ webhooks.on(
   hook(async event => {
     const text = 'A collaborator was removed from a repository';
     await MessageBuilder.create()
+      .setEventPayload(event)
       .setNotificationContent(text)
       .addBlock(createMessageBlock(text))
       .addUser(event.payload.member, 'Collaborator')
@@ -126,6 +130,7 @@ webhooks.on(
     const newPermission = newPermissionLevel.data.permission;
     const text = `A collaborators permission level was changed on a repository from \`${originalPermission}\` :arrow_right: \`${newPermission}\``;
     await MessageBuilder.create()
+      .setEventPayload(event)
       .setNotificationContent(text)
       .addBlock(createMessageBlock(text))
       .addUser(event.payload.member, 'Collaborator')
@@ -142,6 +147,7 @@ webhooks.on(
   hook(async event => {
     const text = 'The org-wide webhook powering Electron Sheriff was just deleted!!!!';
     await MessageBuilder.create()
+      .setEventPayload(event)
       .setNotificationContent(text)
       .addBlock(createMessageBlock(text))
       .addBlame(event.payload.sender)
@@ -156,6 +162,7 @@ webhooks.on(
     const invitedLogin = event.payload.invitation.login;
     const text = `A new member was just invited to the "${event.payload.organization.login}" organization`;
     await MessageBuilder.create()
+      .setEventPayload(event)
       .setNotificationContent(text)
       .addBlock(createMessageBlock(text))
       .addUser(
@@ -177,6 +184,7 @@ webhooks.on(
   hook(async event => {
     const text = `A new member was just added to the "${event.payload.organization.login}" organization`;
     await MessageBuilder.create()
+      .setEventPayload(event)
       .setNotificationContent(text)
       .addBlock(createMessageBlock(text))
       .addUser(event.payload.membership.user, 'New Member')
@@ -191,6 +199,7 @@ webhooks.on(
   hook(async event => {
     const text = `A member was just removed from the "${event.payload.organization.login}" organization`;
     await MessageBuilder.create()
+      .setEventPayload(event)
       .setNotificationContent(text)
       .addBlock(createMessageBlock(text))
       .addUser(event.payload.membership.user, 'Removed Member')
@@ -205,6 +214,7 @@ webhooks.on(
   hook(async event => {
     const text = `The organization was just renamed to \`${event.payload.organization.login}\`, this is incredibly unexpected`;
     await MessageBuilder.create()
+      .setEventPayload(event)
       .setNotificationContent(text)
       .addBlock(createMessageBlock(text))
       .addBlame(event.payload.sender)
@@ -218,6 +228,7 @@ webhooks.on(
   hook(async event => {
     const text = 'A private repository was just made public';
     await MessageBuilder.create()
+      .setEventPayload(event)
       .setNotificationContent(text)
       .addBlock(createMessageBlock(text))
       .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
@@ -249,6 +260,7 @@ webhooks.on(
         return;
     }
     await message
+      .setEventPayload(event)
       .setNotificationContent(text)
       .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
       .addSeverity(severity)

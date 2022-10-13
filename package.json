@@ -20,7 +20,7 @@
     "@octokit/rest": "^18.12.0",
     "@octokit/webhooks": "^9.23.0",
     "@slack/web-api": "^5.8.0",
-    "@slack/webhook": "^5.0.0",
+    "@slack/webhook": "^6.1.0",
     "chalk": "^2.4.2",
     "dotenv-safe": "^6.1.0",
     "express": "^4.17.1",
@@ -38,7 +38,7 @@
     "cross-env": "^5.2.0",
     "husky": "^7.0.4",
     "lint-staged": "^12.4.1",
-    "ngrok": "^3.1.1",
+    "ngrok": "^4.3.3",
     "prettier": "^1.18.2",
     "typescript": "^4.6.2"
   },
