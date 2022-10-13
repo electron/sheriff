@@ -13,6 +13,8 @@ import {
   GITHUB_WEBHOOK_SECRET,
   PORT,
   SHERIFF_IMPORTANT_BRANCH,
+  SHERIFF_SELF_LOGIN,
+  SHERIFF_TRUSTED_RELEASERS,
 } from './constants';
 
 const webhooks = new WebhooksApi({
@@ -88,6 +90,8 @@ webhooks.on(
 webhooks.on(
   'member.added',
   hook(async event => {
+    if (event.payload.sender.login === SHERIFF_SELF_LOGIN) return;
+
     const text = 'A new collaborator was added to a repository';
     await MessageBuilder.create()
       .setEventPayload(event)
@@ -103,6 +107,8 @@ webhooks.on(
 webhooks.on(
   'member.removed',
   hook(async event => {
+    if (event.payload.sender.login === SHERIFF_SELF_LOGIN) return;
+
     const text = 'A collaborator was removed from a repository';
     await MessageBuilder.create()
       .setEventPayload(event)
@@ -118,6 +124,8 @@ webhooks.on(
 webhooks.on(
   'member.edited',
   hook(async event => {
+    if (event.payload.sender.login === SHERIFF_SELF_LOGIN) return;
+
     // Collaborator has permission level changed on repo
     const originalPermission = (event.payload as any).changes.permission.from;
     // We have to fetch the new permission level through the API
@@ -224,8 +232,42 @@ webhooks.on(
 );
 
 webhooks.on(
+  'repository.deleted',
+  hook(async event => {
+    if (event.payload.sender.login === SHERIFF_SELF_LOGIN) return;
+
+    const text = 'A repository was just deleted';
+    await MessageBuilder.create()
+      .setEventPayload(event)
+      .setNotificationContent(text)
+      .addBlock(createMessageBlock(text))
+      .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
+      .addSeverity('critical')
+      .send();
+  }),
+);
+
+webhooks.on(
+  'repository.archived',
+  hook(async event => {
+    if (event.payload.sender.login === SHERIFF_SELF_LOGIN) return;
+
+    const text = 'A repository was just archived';
+    await MessageBuilder.create()
+      .setEventPayload(event)
+      .setNotificationContent(text)
+      .addBlock(createMessageBlock(text))
+      .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
+      .addSeverity('warning')
+      .send();
+  }),
+);
+
+webhooks.on(
   'public',
   hook(async event => {
+    if (event.payload.sender.login === SHERIFF_SELF_LOGIN) return;
+
     const text = 'A private repository was just made public';
     await MessageBuilder.create()
       .setEventPayload(event)
@@ -240,6 +282,8 @@ webhooks.on(
 webhooks.on(
   'release',
   hook(async event => {
+    if (SHERIFF_TRUSTED_RELEASERS?.includes(event.payload.sender.login)) return;
+
     const message = MessageBuilder.create();
     let severity: 'critical' | 'warning' | 'normal' = 'normal';
     const text = `The "${event.payload.release.name}" release was just ${event.payload.action}`;
