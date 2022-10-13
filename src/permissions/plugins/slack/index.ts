@@ -32,7 +32,7 @@ const getAllGroups = memoize(async () => {
     include_users: true,
     include_disabled: true,
   });
-  return (result.usergroups as UserGroup[]).filter(g => !g.is_external);
+  return (result.usergroups as UserGroup[]).filter((g) => !g.is_external);
 });
 
 const getAllUsers = memoize(async () => {
@@ -76,7 +76,7 @@ class SlackPlugin implements Plugin {
 
     const groupName = team.slack === true ? team.name : team.slack;
     const userGroupName = team.displayName || team.name;
-    let existingGroup = groups.find(g => g.handle === groupName);
+    let existingGroup = groups.find((g) => g.handle === groupName);
     if (!existingGroup) {
       builder.addContext(
         `:slack: :tada: Creating Slack User Group with handle \`${groupName}\` as it did not exist`,

@@ -81,8 +81,9 @@ export class MessageBuilder {
   public addRepositoryContext(repo: RepositoryCreatedEvent['repository']) {
     this.addBlock(
       createMarkdownBlock(
-        `*Repository: <${repo.html_url}|${repo.owner.login}/${repo.name}>*\n${repo.description ||
-          'No Description'}`,
+        `*Repository: <${repo.html_url}|${repo.owner.login}/${repo.name}>*\n${
+          repo.description || 'No Description'
+        }`,
       ),
     );
     return this;

@@ -32,7 +32,7 @@ const importantBranchMatcher = () =>
 
 webhooks.on(
   'delete',
-  hook(async event => {
+  hook(async (event) => {
     if (event.payload.ref_type === 'tag') {
       // Deleted a tag
       const deletedTag = event.payload.ref;
@@ -63,7 +63,7 @@ webhooks.on(
 
 webhooks.on(
   'deploy_key.created',
-  hook(async event => {
+  hook(async (event) => {
     if (!event.payload.key.read_only) {
       // Write access deploy key
       const text = `A deploy key with name "${event.payload.key.title}" was just created with write access`;
@@ -89,7 +89,7 @@ webhooks.on(
 
 webhooks.on(
   'member.added',
-  hook(async event => {
+  hook(async (event) => {
     if (event.payload.sender.login === SHERIFF_SELF_LOGIN) return;
 
     const text = 'A new collaborator was added to a repository';
@@ -106,7 +106,7 @@ webhooks.on(
 
 webhooks.on(
   'member.removed',
-  hook(async event => {
+  hook(async (event) => {
     if (event.payload.sender.login === SHERIFF_SELF_LOGIN) return;
 
     const text = 'A collaborator was removed from a repository';
@@ -123,7 +123,7 @@ webhooks.on(
 
 webhooks.on(
   'member.edited',
-  hook(async event => {
+  hook(async (event) => {
     if (event.payload.sender.login === SHERIFF_SELF_LOGIN) return;
 
     // Collaborator has permission level changed on repo
@@ -152,7 +152,7 @@ webhooks.on(
 
 webhooks.on(
   'meta.deleted',
-  hook(async event => {
+  hook(async (event) => {
     const text = 'The org-wide webhook powering Electron Sheriff was just deleted!!!!';
     await MessageBuilder.create()
       .setEventPayload(event)
@@ -166,7 +166,7 @@ webhooks.on(
 
 webhooks.on(
   'organization.member_invited',
-  hook(async event => {
+  hook(async (event) => {
     const invitedLogin = event.payload.invitation.login;
     const text = `A new member was just invited to the "${event.payload.organization.login}" organization`;
     await MessageBuilder.create()
@@ -189,7 +189,7 @@ webhooks.on(
 
 webhooks.on(
   'organization.member_added',
-  hook(async event => {
+  hook(async (event) => {
     const text = `A new member was just added to the "${event.payload.organization.login}" organization`;
     await MessageBuilder.create()
       .setEventPayload(event)
@@ -204,7 +204,7 @@ webhooks.on(
 
 webhooks.on(
   'organization.member_removed',
-  hook(async event => {
+  hook(async (event) => {
     const text = `A member was just removed from the "${event.payload.organization.login}" organization`;
     await MessageBuilder.create()
       .setEventPayload(event)
@@ -219,7 +219,7 @@ webhooks.on(
 
 webhooks.on(
   'organization.renamed',
-  hook(async event => {
+  hook(async (event) => {
     const text = `The organization was just renamed to \`${event.payload.organization.login}\`, this is incredibly unexpected`;
     await MessageBuilder.create()
       .setEventPayload(event)
@@ -233,7 +233,7 @@ webhooks.on(
 
 webhooks.on(
   'repository.deleted',
-  hook(async event => {
+  hook(async (event) => {
     if (event.payload.sender.login === SHERIFF_SELF_LOGIN) return;
 
     const text = 'A repository was just deleted';
@@ -249,7 +249,7 @@ webhooks.on(
 
 webhooks.on(
   'repository.archived',
-  hook(async event => {
+  hook(async (event) => {
     if (event.payload.sender.login === SHERIFF_SELF_LOGIN) return;
 
     const text = 'A repository was just archived';
@@ -265,7 +265,7 @@ webhooks.on(
 
 webhooks.on(
   'public',
-  hook(async event => {
+  hook(async (event) => {
     if (event.payload.sender.login === SHERIFF_SELF_LOGIN) return;
 
     const text = 'A private repository was just made public';
@@ -281,7 +281,7 @@ webhooks.on(
 
 webhooks.on(
   'release',
-  hook(async event => {
+  hook(async (event) => {
     if (SHERIFF_TRUSTED_RELEASERS?.includes(event.payload.sender.login)) return;
 
     const message = MessageBuilder.create();

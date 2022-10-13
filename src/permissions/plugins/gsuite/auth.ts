@@ -35,7 +35,7 @@ if (process.mainModule === module) {
     input: process.stdin,
     output: process.stdout,
   });
-  rl.question('Enter the code from that page here: ', code => {
+  rl.question('Enter the code from that page here: ', (code) => {
     rl.close();
     oauth2Client.getToken(code, (err, token) => {
       if (err) return console.error('Error retrieving access token', err);

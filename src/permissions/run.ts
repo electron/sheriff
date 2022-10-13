@@ -108,10 +108,10 @@ const loadCurrentConfig = async () => {
 
 const validateConfigFast = async (config: PermissionsConfig) => {
   // Support formation prop
-  config.teams = config.teams.map(team => {
+  config.teams = config.teams.map((team) => {
     const anyTeam = team as any;
     if (anyTeam.formation) {
-      const formationTeams = config.teams.filter(t => anyTeam.formation.includes(t.name));
+      const formationTeams = config.teams.filter((t) => anyTeam.formation.includes(t.name));
       const maintainers = new Set(
         formationTeams.reduce<string[]>((all, team) => [...all, ...team.maintainers], []),
       );
@@ -135,48 +135,27 @@ const validateConfigFast = async (config: PermissionsConfig) => {
 
   // Ensure the object looks right
   await Joi.validate(config, {
-    organization: Joi.string()
-      .min(1)
-      .required(),
+    organization: Joi.string().min(1).required(),
     repository_defaults: Joi.object({
       has_wiki: Joi.boolean().required(),
     }).required(),
     teams: Joi.array()
       .items({
-        name: Joi.string()
-          .min(1)
-          .required(),
-        displayName: Joi.string()
-          .min(1)
-          .optional(),
-        parent: Joi.string()
-          .min(1)
-          .optional(),
+        name: Joi.string().min(1).required(),
+        displayName: Joi.string().min(1).optional(),
+        parent: Joi.string().min(1).optional(),
         secret: Joi.bool().optional(),
-        members: Joi.array()
-          .items(Joi.string().min(1))
-          .min(0)
-          .required(),
-        maintainers: Joi.array()
-          .items(Joi.string().min(1))
-          .min(1)
-          .required(),
+        members: Joi.array().items(Joi.string().min(1)).min(0).required(),
+        maintainers: Joi.array().items(Joi.string().min(1)).min(1).required(),
         gsuite: Joi.object({
-          privacy: Joi.string()
-            .only('internal', 'external')
-            .required(),
+          privacy: Joi.string().only('internal', 'external').required(),
         }).optional(),
-        slack: Joi.string()
-          .min(1)
-          .allow(true)
-          .optional(),
+        slack: Joi.string().min(1).allow(true).optional(),
       })
       .required(),
     repositories: Joi.array()
       .items({
-        name: Joi.string()
-          .min(1)
-          .required(),
+        name: Joi.string().min(1).required(),
         teams: Joi.object()
           .pattern(Joi.string(), Joi.string().only('read', 'triage', 'write', 'maintain', 'admin'))
           .optional(),
@@ -189,9 +168,7 @@ const validateConfigFast = async (config: PermissionsConfig) => {
         settings: Joi.object({
           has_wiki: Joi.boolean(),
         }).optional(),
-        visibility: Joi.string()
-          .only('public', 'private')
-          .optional(),
+        visibility: Joi.string().only('public', 'private').optional(),
       })
       .required(),
   });
@@ -205,7 +182,7 @@ const validateConfigFast = async (config: PermissionsConfig) => {
         `Team "${team.name}" in the teams config appears to have a crossover between members and maintainers.  Users should appear in at most one section`,
       );
     }
-    const parentTeam = team.parent && config.teams.find(t => t.name === team.parent);
+    const parentTeam = team.parent && config.teams.find((t) => t.name === team.parent);
     if (team.parent && !parentTeam) {
       throw new Error(
         `Team "${team.name}" has a parent team of "${team.parent}" but that team does not appear to exist`,
@@ -233,7 +210,7 @@ const validateConfigFast = async (config: PermissionsConfig) => {
               ...visited,
               parentRef.name,
             ]
-              .map(n => `"${n}"`)
+              .map((n) => `"${n}"`)
               .join(' --> ')}`,
           );
         }
@@ -244,7 +221,7 @@ const validateConfigFast = async (config: PermissionsConfig) => {
           );
         }
         parentRef =
-          (parentRef.parent && config.teams.find(t => t.name === parentRef!.parent)) || undefined;
+          (parentRef.parent && config.teams.find((t) => t.name === parentRef!.parent)) || undefined;
       }
     }
   }
@@ -271,7 +248,7 @@ const validateConfigFast = async (config: PermissionsConfig) => {
 
   for (const repo of config.repositories) {
     for (const team in repo.teams) {
-      if (!config.teams.find(t => t.name === team))
+      if (!config.teams.find((t) => t.name === team))
         throw new Error(
           `Team "${team}" assigned to "${repo.name}" does not exist in the "teams" config`,
         );
@@ -293,7 +270,7 @@ async function main() {
   const badUsers: string[] = [];
   for (const team of config.teams) {
     for (const person of [...team.members, ...team.maintainers]) {
-      if (!allUsers.find(u => u.login === person)) {
+      if (!allUsers.find((u) => u.login === person)) {
         badUsers.push(person);
       }
     }
@@ -312,7 +289,7 @@ async function main() {
   }
 
   const missingConfigRepos = allRepos.filter(
-    r => !config.repositories.find(repo => repo.name === r.name),
+    (r) => !config.repositories.find((repo) => repo.name === r.name),
   );
   for (const missingConfigRepo of missingConfigRepos) {
     builder.addWarning(`Missing explicit config for repo \`${missingConfigRepo.name}\``);
@@ -333,7 +310,7 @@ async function main() {
   if (missingConfigRepos.length) builder.divide();
 
   const reposNotInTargetOrg = config.repositories.filter(
-    r => !allRepos.find(repo => r.name === repo.name),
+    (r) => !allRepos.find((repo) => r.name === repo.name),
   );
   for (const repoNotInTargetOrg of reposNotInTargetOrg) {
     builder.addWarning(
@@ -346,7 +323,9 @@ async function main() {
     );
   }
 
-  const missingConfigTeams = allTeams.filter(t => !config.teams.find(team => team.name === t.name));
+  const missingConfigTeams = allTeams.filter(
+    (t) => !config.teams.find((team) => team.name === t.name),
+  );
   for (const missingConfigTeam of missingConfigTeams) {
     builder.addCritical(`Deleting Team: \`${missingConfigTeam.name}\``);
     console.info(chalk.red('Deleting Team'), chalk.cyan(missingConfigTeam.name));
@@ -368,14 +347,16 @@ async function main() {
   const reposToCheck: RepositoryConfig[] = [];
 
   for (const repo of config.repositories) {
-    let octoRepo = allRepos.find(r => repo.name === r.name);
+    let octoRepo = allRepos.find((r) => repo.name === r.name);
     if (!octoRepo) {
-      octoRepo = (await octokit.repos.createInOrg({
-        org: config.organization,
-        name: repo.name,
-        has_wiki: false,
-        visibility: repo.visibility,
-      })).data as (GetResponseDataTypeFromEndpointMethod<typeof octokit.repos.listForOrg>[0]);
+      octoRepo = (
+        await octokit.repos.createInOrg({
+          org: config.organization,
+          name: repo.name,
+          has_wiki: false,
+          visibility: repo.visibility,
+        })
+      ).data as GetResponseDataTypeFromEndpointMethod<typeof octokit.repos.listForOrg>[0];
       listAllOrgRepos.invalidate();
     }
     // If it is archived we can not update permissions but it should still
@@ -395,7 +376,7 @@ async function main() {
   }
 
   await new Promise<void>((resolve, reject) => {
-    q.start(err => {
+    q.start((err) => {
       if (err) return reject(err);
 
       resolve();
@@ -441,13 +422,10 @@ const listAllOrgRepos = memoize(async (config: PermissionsConfig) => {
   });
 
   const securityRepoPattern = /^[\w]+-ghsa-[A-Za-z0-9-]{4}-[A-Za-z0-9-]{4}-[A-Za-z0-9-]{4}$/;
-  return repos.filter(r => {
+  return repos.filter((r) => {
     const isSecurityAdvisory = securityRepoPattern.test(r.name);
     const isGlitchedRepo = GLITCHED_REPO_HASHES.includes(
-      crypto
-        .createHash('SHA256')
-        .update(r.name)
-        .digest('hex'),
+      crypto.createHash('SHA256').update(r.name).digest('hex'),
     );
 
     return !(isGlitchedRepo || isSecurityAdvisory);
@@ -473,7 +451,7 @@ async function findTeamByName(
 ): Promise<GetResponseDataTypeFromEndpointMethod<typeof octokit.teams.list>[0]> {
   const octokit = await getOctokit();
   const allTeams = await listAllTeams(config);
-  const matchingTeams = allTeams.filter(team => team.name === teamName);
+  const matchingTeams = allTeams.filter((team) => team.name === teamName);
   if (matchingTeams.length > 1)
     throw new Error(`Found more than one team whose name matches: ${teamName}`);
   if (matchingTeams.length === 0) {
@@ -609,7 +587,7 @@ async function checkTeam(builder: MessageBuilder, config: PermissionsConfig, tea
     if (
       !team.maintainers.includes(currentMaintainer.login) &&
       !(
-        orgOwners.find(owner => owner.login === currentMaintainer.login) &&
+        orgOwners.find((owner) => owner.login === currentMaintainer.login) &&
         team.members.includes(currentMaintainer.login)
       )
     ) {
@@ -656,10 +634,12 @@ async function checkTeam(builder: MessageBuilder, config: PermissionsConfig, tea
   for (const supposedMaintainer of team.maintainers) {
     // Maintainer according to the config is not currently a maintainer but should be
     if (
-      !currentMaintainers.find(currentMaintainer => currentMaintainer.login === supposedMaintainer)
+      !currentMaintainers.find(
+        (currentMaintainer) => currentMaintainer.login === supposedMaintainer,
+      )
     ) {
       // It is possible that this supposed maintainer is currently a "member" and needs to be upgrades, let's check that now and try deal with it
-      if (currentMembers.find(member => member.login === supposedMaintainer)) {
+      if (currentMembers.find((member) => member.login === supposedMaintainer)) {
         // Ah ha, we were right, let's suggest promotion
         builder.addContext(
           `:arrow_heading_up: Promoting \`${supposedMaintainer}\` to maintainer of \`${team.name}\``,
@@ -729,11 +709,11 @@ async function checkTeam(builder: MessageBuilder, config: PermissionsConfig, tea
 
   for (const supposedMember of team.members) {
     // Member according to the config is not currently a member but should be
-    if (!currentMembers.find(currentMember => currentMember.login === supposedMember)) {
+    if (!currentMembers.find((currentMember) => currentMember.login === supposedMember)) {
       // It's possible that this user is an org admin and currently registered as a "maintainer" due to a quirk in the GitHub API
       if (
-        orgOwners.find(owner => owner.login === supposedMember) &&
-        currentMaintainers.find(currentMaintainer => currentMaintainer.login === supposedMember)
+        orgOwners.find((owner) => owner.login === supposedMember) &&
+        currentMaintainers.find((currentMaintainer) => currentMaintainer.login === supposedMember)
       ) {
         // Ok, so this user is in a good state, they appear as a maintainer and there's nothing we can do about that because
         // org owners rule the whole world.
@@ -741,7 +721,7 @@ async function checkTeam(builder: MessageBuilder, config: PermissionsConfig, tea
         // Now it's possible that this user is already a maintainer and needs to be demoted, this would have been handled above
         // but to be sure we don't double-handle we still need to check here
         if (
-          currentMaintainers.find(currentMaintainer => currentMaintainer.login === supposedMember)
+          currentMaintainers.find((currentMaintainer) => currentMaintainer.login === supposedMember)
         ) {
           // Ignore this case as per above
         } else {
@@ -867,7 +847,7 @@ async function checkRepository(
 
   for (const supposedTeamName of Object.keys(repo.teams || {})) {
     // Supposed team is not currently on the repo and should be added
-    if (!currentTeams.find(currentTeam => currentTeam.name === supposedTeamName)) {
+    if (!currentTeams.find((currentTeam) => currentTeam.name === supposedTeamName)) {
       // Hm, let's suggest we add this team at the right access level
       builder.addContext(
         `:heavy_plus_sign: Adding \`${supposedTeamName}\` team to repo \`${repo.name}\` at base access level \`${repo.teams[supposedTeamName]}\``,
@@ -1006,7 +986,7 @@ async function checkRepository(
     }
   }
 
-  const octoRepo = (await listAllOrgRepos(config)).find(r => repo.name === r.name)!;
+  const octoRepo = (await listAllOrgRepos(config)).find((r) => repo.name === r.name)!;
   const computedSettings = computeRepoSettings(config, repo);
   let update = false;
   update = update || octoRepo.has_wiki !== computedSettings.has_wiki;
@@ -1050,10 +1030,10 @@ async function checkRepository(
     // Supposed collaborator is not currently in the repo and should be added
     if (
       !currentCollaborators.find(
-        currentCollaborator => currentCollaborator.login === supposedCollaboratorName,
+        (currentCollaborator) => currentCollaborator.login === supposedCollaboratorName,
       ) &&
       !currentInvites.find(
-        currentInvite => currentInvite.invitee!.login === supposedCollaboratorName,
+        (currentInvite) => currentInvite.invitee!.login === supposedCollaboratorName,
       )
     ) {
       // Hm, let's suggest we add this collaborator at the right access level
@@ -1084,7 +1064,7 @@ async function checkRepository(
 }
 
 if (process.mainModule === module) {
-  main().catch(err => {
+  main().catch((err) => {
     console.error(err);
     process.exit(1);
   });

@@ -60,7 +60,7 @@ class GSuitePlugin implements Plugin {
     const users = await getAllDirectoryUsers();
     const groups = await getAllDirectoryGroups();
     const expectedEmail = `${team.name}@${SHERIFF_GSUITE_DOMAIN}`;
-    let existingGroup = groups.find(g => g.email === expectedEmail);
+    let existingGroup = groups.find((g) => g.email === expectedEmail);
 
     if (!team.gsuite) {
       if (existingGroup) {
@@ -89,12 +89,14 @@ class GSuitePlugin implements Plugin {
         'as it did not exist',
       );
       if (!IS_DRY_RUN) {
-        existingGroup = (await service.groups.insert({
-          requestBody: {
-            email: expectedEmail,
-            name: team.displayName,
-          },
-        })).data!;
+        existingGroup = (
+          await service.groups.insert({
+            requestBody: {
+              email: expectedEmail,
+              name: team.displayName,
+            },
+          })
+        ).data!;
       }
     }
 
@@ -116,7 +118,7 @@ class GSuitePlugin implements Plugin {
       // Remove user from group, they should not be here
       if (
         ![...team.members, ...team.maintainers].some(
-          m => m.toLowerCase() === username.toLowerCase(),
+          (m) => m.toLowerCase() === username.toLowerCase(),
         )
       ) {
         // Ignore slack notification emails, we need those
@@ -145,7 +147,7 @@ class GSuitePlugin implements Plugin {
 
       // Make owners be members if they should be
       if (
-        team.members.some(m => m.toLowerCase() === username.toLowerCase()) &&
+        team.members.some((m) => m.toLowerCase() === username.toLowerCase()) &&
         member.role === 'OWNER'
       ) {
         builder.addContext(
@@ -170,7 +172,7 @@ class GSuitePlugin implements Plugin {
 
       // Make members be owners if they should be
       if (
-        team.maintainers.some(m => m.toLowerCase() === username.toLowerCase()) &&
+        team.maintainers.some((m) => m.toLowerCase() === username.toLowerCase()) &&
         member.role === 'MEMBER'
       ) {
         builder.addContext(
@@ -196,11 +198,13 @@ class GSuitePlugin implements Plugin {
 
     for (const member of team.members) {
       // If they already exist we have dealt with them above, so we just need to add them
-      if (existingMembers.find(m => m.email!.split('@')[0].toLowerCase() === member.toLowerCase()))
+      if (
+        existingMembers.find((m) => m.email!.split('@')[0].toLowerCase() === member.toLowerCase())
+      )
         continue;
 
       const memberEmail = `${member.toLowerCase()}@${SHERIFF_GSUITE_DOMAIN}`;
-      if (!users.some(u => u.primaryEmail === memberEmail)) continue;
+      if (!users.some((u) => u.primaryEmail === memberEmail)) continue;
 
       // Add new members
       builder.addContext(
@@ -226,11 +230,13 @@ class GSuitePlugin implements Plugin {
 
     for (const member of team.maintainers) {
       // If they already exist we have dealt with them above, so we just need to add them
-      if (existingMembers.find(m => m.email!.split('@')[0].toLowerCase() === member.toLowerCase()))
+      if (
+        existingMembers.find((m) => m.email!.split('@')[0].toLowerCase() === member.toLowerCase())
+      )
         continue;
 
       const memberEmail = `${member.toLowerCase()}@${SHERIFF_GSUITE_DOMAIN}`;
-      if (!users.some(u => u.primaryEmail === memberEmail)) continue;
+      if (!users.some((u) => u.primaryEmail === memberEmail)) continue;
 
       // Add new owners
       builder.addContext(

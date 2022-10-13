@@ -26,5 +26,7 @@ export const GSUITE_TOKEN = process.env.GSUITE_TOKEN;
 export const SHERIFF_GSUITE_DOMAIN = process.env.SHERIFF_GSUITE_DOMAIN;
 export const SHERIFF_SLACK_DOMAIN = process.env.SHERIFF_SLACK_DOMAIN;
 
-export const SHERIFF_TRUSTED_RELEASERS = process.env.SHERIFF_TRUSTED_RELEASERS?.split(',').map(s => s.trim());
+export const SHERIFF_TRUSTED_RELEASERS = process.env.SHERIFF_TRUSTED_RELEASERS?.split(',').map(
+  (s) => s.trim(),
+);
 export const SHERIFF_SELF_LOGIN = process.env.SHERIFF_SELF_LOGIN || null;
