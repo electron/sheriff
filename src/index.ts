@@ -34,6 +34,8 @@ webhooks.on(
   'delete',
   hook(async (event) => {
     if (event.payload.ref_type === 'tag') {
+      if (SHERIFF_TRUSTED_RELEASERS?.includes(event.payload.sender.login)) return;
+
       // Deleted a tag
       const deletedTag = event.payload.ref;
       const text = `An existing tag was just deleted: ${deletedTag}`;
