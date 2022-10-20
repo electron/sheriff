@@ -145,5 +145,3 @@ fail due to an unexpected state on GitHub or an incorrect/incomplete permissions
 
 * Sheriff is not currently capable of inviting people to your org
   * Before adding them to the permissions file, ensure you've added them to the org.
-* Sheriff is not currently capable of create repositories
-  * To prevent errors, you should create the new repo and then immediately reflect that new repo in the permissions file.
