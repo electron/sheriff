@@ -69,7 +69,7 @@ class GSuitePlugin implements Plugin {
         console.info(chalk.red('Deleting GSuite group with address'), chalk.cyan(expectedEmail));
         if (!IS_DRY_RUN) {
           await service.groups.delete({
-            groupKey: existingGroup.email,
+            groupKey: existingGroup.email!,
           });
         }
       }
@@ -138,7 +138,7 @@ class GSuitePlugin implements Plugin {
           if (!IS_DRY_RUN) {
             await service.members.delete({
               groupKey: expectedEmail,
-              memberKey: member.email,
+              memberKey: member.email!,
             });
           }
         }
@@ -162,7 +162,7 @@ class GSuitePlugin implements Plugin {
         if (!IS_DRY_RUN) {
           await service.members.patch({
             groupKey: expectedEmail,
-            memberKey: member.email,
+            memberKey: member.email!,
             requestBody: {
               role: 'MEMBER',
             },
@@ -187,7 +187,7 @@ class GSuitePlugin implements Plugin {
         if (!IS_DRY_RUN) {
           await service.members.patch({
             groupKey: expectedEmail,
-            memberKey: member.email,
+            memberKey: member.email!,
             requestBody: {
               role: 'OWNER',
             },
