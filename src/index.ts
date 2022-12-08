@@ -335,4 +335,11 @@ const server = app.listen(PORT, async () => {
     });
     console.log('Ngrok Tunnel Active:', url);
   }
+  process.on('SIGINT', () => {
+    console.log('\nSIGINT detected, retiring the sheriff...');
+    server.close(() => {
+        console.log('\nThe Sheriff\'s Day is Done!');
+        process.exit(0);
+    })
+  })
 });

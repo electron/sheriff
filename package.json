@@ -10,7 +10,9 @@
     "lint-staged": "lint-staged",
     "prepare": "husky install",
     "prettier:write": "prettier --write \"src/**/*.{ts,tsx}\"",
-    "start": "node lib/index.js"
+    "start": "node lib/index.js",
+    "build-docker": "docker build -t electron/sheriff .",
+    "start-docker": "docker run --rm -p 8080:8080 --env-file .env electron/sheriff"
   },
   "author": "Samuel Attard",
   "dependencies": {
