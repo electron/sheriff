@@ -36,7 +36,7 @@
     "@types/joi": "^14.3.3",
     "@types/js-yaml": "^3.12.1",
     "cross-env": "^5.2.0",
-    "husky": "^7.0.4",
+    "husky": "^8.0.0",
     "lint-staged": "^12.4.1",
     "ngrok": "^4.3.3",
     "prettier": "^2.7.1",
