@@ -338,8 +338,8 @@ const server = app.listen(PORT, async () => {
   process.on('SIGINT', () => {
     console.log('\nSIGINT detected, retiring the sheriff...');
     server.close(() => {
-        console.log('\nThe Sheriff\'s Day is Done!');
-        process.exit(0);
-    })
-  })
+      console.log("\nThe Sheriff's Day is Done!");
+      process.exit(0);
+    });
+  });
 });
