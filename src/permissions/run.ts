@@ -329,10 +329,12 @@ async function main() {
   for (const missingConfigTeam of missingConfigTeams) {
     builder.addCritical(`Deleting Team: \`${missingConfigTeam.name}\``);
     console.info(chalk.red('Deleting Team'), chalk.cyan(missingConfigTeam.name));
-    await octokit.teams.deleteInOrg({
-      team_slug: missingConfigTeam.slug,
-      org: config.organization,
-    });
+    if (!IS_DRY_RUN) {
+      await octokit.teams.deleteInOrg({
+        team_slug: missingConfigTeam.slug,
+        org: config.organization,
+      });
+    }
   }
 
   if (missingConfigTeams.length) builder.divide();
@@ -349,14 +351,18 @@ async function main() {
   for (const repo of config.repositories) {
     let octoRepo = allRepos.find((r) => repo.name === r.name);
     if (!octoRepo) {
-      octoRepo = (
-        await octokit.repos.createInOrg({
-          org: config.organization,
-          name: repo.name,
-          has_wiki: false,
-          visibility: repo.visibility,
-        })
-      ).data as GetResponseDataTypeFromEndpointMethod<typeof octokit.repos.listForOrg>[0];
+      if (!IS_DRY_RUN) {
+        octoRepo = (
+          await octokit.repos.createInOrg({
+            org: config.organization,
+            name: repo.name,
+            has_wiki: false,
+            visibility: repo.visibility,
+          })
+        ).data as GetResponseDataTypeFromEndpointMethod<typeof octokit.repos.listForOrg>[0];
+      } else {
+        break;
+      }
       listAllOrgRepos.invalidate();
     }
     // If it is archived we can not update permissions but it should still
