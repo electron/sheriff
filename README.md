@@ -121,9 +121,11 @@ teams:
     secret: <boolean>
     # Create a slack user group for this team
     # false=no, true=use name of team, string=custom_name
+    # Used by the `slack` plugin
     slack: <boolean> | <string>
     # Create a GSuite group for this team
     # Leave undefined for "no"
+    # Used by the `gsuite` plugin
     gsuite:
       # internal = only visible to other GSuite members
       # external = public facing group email address
@@ -134,6 +136,8 @@ repositories:
       <team_name>: read | triage | write | maintain | admin
     external_collaborators:
       <gh_username>: read | triage | write | maintain | admin
+    # Public vs Private repository, no value is assumed to mean public
+    visibility: public | private
 ```
 
 ## Deployment Recommendations
@@ -145,3 +149,4 @@ fail due to an unexpected state on GitHub or an incorrect/incomplete permissions
 
 * Sheriff is not currently capable of inviting people to your org
   * Before adding them to the permissions file, ensure you've added them to the org.
+* Sheriff will not remove people from your org, if your has "default member permissions" you should ensure users are manually removed when appropriate
