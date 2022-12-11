@@ -162,6 +162,19 @@ export class MessageBuilder {
     return this;
   }
 
+  public addReverted() {
+    this.addBlock({
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: ':black_left_pointing_double_triangle_with_vertical_bar:   *This permissions change was automatically reverted*',
+        },
+      ],
+    });
+    return this;
+  }
+
   public divide() {
     this.addBlock({
       type: 'divider',

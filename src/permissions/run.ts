@@ -199,6 +199,12 @@ const validateConfigFast = async (config: PermissionsConfig) => {
   }
 };
 
+export const getValidatedConfig = async () => {
+  const config = await loadCurrentConfig();
+  await validateConfigFast(config);
+  return config;
+};
+
 async function main() {
   const builder = MessageBuilder.create();
   const config = await loadCurrentConfig();
