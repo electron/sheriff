@@ -137,15 +137,19 @@ async function takeActionOnRepositoryCollaborator(
     repo: repo.name,
     affiliation: 'direct',
   });
-  const currentCollaborator = allCollaborators.find((c) => c.id === member.id)!;
+  const currentCollaborator = allCollaborators.find((c) => c.id === member.id);
 
-  const currentSheriffLevel = gitHubPermissionsToSheriffLevel(currentCollaborator.permissions!);
+  // currentCollaborator is undefined when this user was removed as a collaborator
+  // during this event
+  const currentSheriffLevel = currentCollaborator
+    ? gitHubPermissionsToSheriffLevel(currentCollaborator.permissions!)
+    : null;
   // The change resulted in an unexpected new state
-  if (currentSheriffLevel !== expectedLevel) {
+  if (!currentSheriffLevel || currentSheriffLevel !== expectedLevel) {
     await octokit.repos.addCollaborator({
       owner: repo.owner.login,
       repo: repo.name,
-      username: currentCollaborator.login,
+      username: member.login,
       permission: sheriffLevelToGitHubLevel(expectedLevel),
     });
     return PermissionEnforcementAction.REVERT_CHANGE;
