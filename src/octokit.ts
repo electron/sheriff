@@ -11,10 +11,10 @@ import { IS_DRY_RUN } from './helpers';
 
 require('dotenv-safe').config();
 
-function getAuthNarrowing(): AuthNarrowing {
+function getAuthNarrowing(forceReadOnly: boolean): AuthNarrowing {
   // In a dry run, ensure we only have read access to resources to avoid
   // any mishaps
-  if (IS_DRY_RUN) {
+  if (IS_DRY_RUN || forceReadOnly) {
     return {
       permissions: {
         administration: 'read',
@@ -36,7 +36,7 @@ function getAuthNarrowing(): AuthNarrowing {
 }
 
 let octokit: Octokit;
-export async function getOctokit() {
+export async function getOctokit(forceReadOnly = false) {
   if (octokit) return octokit;
 
   const creds = appCredentialsFromString(SHERIFF_GITHUB_APP_CREDS!);
@@ -46,13 +46,13 @@ export async function getOctokit() {
       name: REPO_NAME,
     },
     creds,
-    getAuthNarrowing(),
+    getAuthNarrowing(forceReadOnly),
   );
   octokit = new Octokit({ ...authOpts });
   return octokit;
 }
 
-export async function graphyOctokit() {
+export async function graphyOctokit(forceReadOnly = false) {
   const creds = appCredentialsFromString(SHERIFF_GITHUB_APP_CREDS!);
   const token = await getTokenForRepo(
     {
@@ -60,7 +60,7 @@ export async function graphyOctokit() {
       name: REPO_NAME,
     },
     creds,
-    getAuthNarrowing(),
+    getAuthNarrowing(forceReadOnly),
   );
   return graphql.defaults({
     headers: {

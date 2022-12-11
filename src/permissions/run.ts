@@ -5,14 +5,20 @@ import * as Joi from 'joi';
 import * as yml from 'js-yaml';
 import queue from 'queue';
 
-import { TeamConfig } from './plugins/Plugin';
-
 import { graphyOctokit, getOctokit } from '../octokit';
 import { memoize, IS_DRY_RUN } from '../helpers';
 import { GetResponseDataTypeFromEndpointMethod } from '@octokit/types';
 import { MessageBuilder } from '../MessageBuilder';
 import { plugins } from './plugins';
 import { PERMISSIONS_FILE_ORG, PERMISSIONS_FILE_PATH, PERMISSIONS_FILE_REPO } from '../constants';
+import {
+  PermissionsConfig,
+  RepoSettings,
+  RepositoryConfig,
+  SheriffAccessLevel,
+  TeamConfig,
+} from './types';
+import { gitHubPermissionsToSheriffLevel, sheriffLevelToGitHubLevel } from './level-converters';
 
 const GLITCHED_REPO_HASHES = [
   'd9a1eb0cd63e7509c90828354e18d54a8d616c80ecdc6ded8972a4f788540859',
@@ -21,69 +27,6 @@ const GLITCHED_REPO_HASHES = [
 ];
 
 console.warn('Dry Run?:', chalk[IS_DRY_RUN ? 'green' : 'red'](`${IS_DRY_RUN}`));
-
-type AccessLevel = 'read' | 'triage' | 'write' | 'maintain' | 'admin';
-type GitHubAccessLevel = 'pull' | 'triage' | 'push' | 'maintain' | 'admin';
-
-const sheriffLevelToGitHubLevel = (acessLevel: AccessLevel): GitHubAccessLevel => {
-  switch (acessLevel) {
-    case 'read':
-      return 'pull';
-    case 'triage':
-      return 'triage';
-    case 'write':
-      return 'push';
-    case 'maintain':
-      return 'maintain';
-    case 'admin':
-      return 'admin';
-  }
-  throw new Error(`Attempted to convert unknown github access level "${acessLevel}"`);
-};
-
-const gitHubPermissionsToSheriffLevel = (gitHubPermissions: {
-  pull: boolean;
-  triage?: boolean;
-  push: boolean;
-  maintain?: boolean;
-  admin: boolean;
-}): AccessLevel => {
-  if (gitHubPermissions.admin) return 'admin';
-  if (gitHubPermissions.maintain) return 'maintain';
-  if (gitHubPermissions.push) return 'write';
-  if (gitHubPermissions.triage) return 'triage';
-  if (gitHubPermissions.pull) return 'read';
-  throw new Error(
-    `Attempted to convert unhandleable github permissions object "${JSON.stringify(
-      gitHubPermissions,
-    )}"`,
-  );
-};
-
-interface RepositoryConfig {
-  name: string;
-  /**
-   * Map of team name to access level
-   */
-  teams: Record<string, AccessLevel>;
-  /**
-   * Map of username to access level
-   */
-  external_collaborators: Record<string, AccessLevel>;
-  settings?: Partial<RepoSettings>;
-  visibility?: 'public' | 'private';
-}
-
-interface RepoSettings {
-  has_wiki: boolean;
-}
-
-interface PermissionsConfig {
-  organization: string;
-  repository_defaults: RepoSettings;
-  teams: TeamConfig[];
-  repositories: RepositoryConfig[];
-}
 
 const loadCurrentConfig = async () => {
   if (fs.existsSync('config.yml'))
@@ -821,7 +764,7 @@ async function checkRepository(
     } else {
       // It's supposed to be here, let's check the permission level is ok
       const currentLevel = gitHubPermissionsToSheriffLevel(currentTeam.permissions!);
-      const supposedLevel = repo.teams[currentTeam.name];
+      const supposedLevel = repo.teams![currentTeam.name];
       if (currentLevel !== supposedLevel) {
         // Looks like the permission level isn't quite right, let's suggest we update that
         builder.addContext(
@@ -856,7 +799,9 @@ async function checkRepository(
     if (!currentTeams.find((currentTeam) => currentTeam.name === supposedTeamName)) {
       // Hm, let's suggest we add this team at the right access level
       builder.addContext(
-        `:heavy_plus_sign: Adding \`${supposedTeamName}\` team to repo \`${repo.name}\` at base access level \`${repo.teams[supposedTeamName]}\``,
+        `:heavy_plus_sign: Adding \`${supposedTeamName}\` team to repo \`${
+          repo.name
+        }\` at base access level \`${repo.teams![supposedTeamName]}\``,
       );
       console.info(
         chalk.green('Adding'),
@@ -864,14 +809,14 @@ async function checkRepository(
         'team to repo',
         chalk.cyan(repo.name),
         'at base access level',
-        chalk.magenta(repo.teams[supposedTeamName]),
+        chalk.magenta(repo.teams![supposedTeamName]),
       );
       if (!IS_DRY_RUN) {
         const octokit = await getOctokit();
         await octokit.teams.addOrUpdateRepoPermissionsInOrg({
           owner: config.organization,
           repo: repo.name,
-          permission: sheriffLevelToGitHubLevel(repo.teams[supposedTeamName]),
+          permission: sheriffLevelToGitHubLevel(repo.teams![supposedTeamName]),
           org: config.organization,
           team_slug: (await findTeamByName(builder, config, supposedTeamName)).slug,
         });
@@ -905,8 +850,8 @@ async function checkRepository(
       }
     } else {
       // They're supposed to be here, let's check the permission level is ok
-      const currentLevel = currentInvite.permissions as AccessLevel;
-      const supposedLevel = repo.external_collaborators[invitee.login];
+      const currentLevel = currentInvite.permissions as SheriffAccessLevel;
+      const supposedLevel = repo.external_collaborators![invitee.login];
       if (currentLevel !== supposedLevel) {
         // Looks like the permission level isn't quite right, let's suggest we update that
         builder.addContext(
@@ -963,7 +908,7 @@ async function checkRepository(
     } else {
       // They're supposed to be here, let's check the permission level is ok
       const currentLevel = gitHubPermissionsToSheriffLevel(currentCollaborator.permissions!);
-      const supposedLevel = repo.external_collaborators[currentCollaborator.login];
+      const supposedLevel = repo.external_collaborators![currentCollaborator.login];
       if (currentLevel !== supposedLevel) {
         // Looks like the permission level isn't quite right, let's suggest we update that
         builder.addContext(
@@ -1044,7 +989,9 @@ async function checkRepository(
     ) {
       // Hm, let's suggest we add this collaborator at the right access level
       builder.addContext(
-        `:heavy_plus_sign: Adding Collaborator \`${supposedCollaboratorName}\` to repo \`${repo.name}\` at base access level \`${repo.external_collaborators[supposedCollaboratorName]}\``,
+        `:heavy_plus_sign: Adding Collaborator \`${supposedCollaboratorName}\` to repo \`${
+          repo.name
+        }\` at base access level \`${repo.external_collaborators![supposedCollaboratorName]}\``,
       );
       console.info(
         chalk.green('Adding Collaborator'),
@@ -1052,7 +999,7 @@ async function checkRepository(
         'to repo',
         chalk.cyan(repo.name),
         'at base access level',
-        chalk.magenta(repo.external_collaborators[supposedCollaboratorName]),
+        chalk.magenta(repo.external_collaborators![supposedCollaboratorName]),
       );
       if (!IS_DRY_RUN) {
         const octokit = await getOctokit();
@@ -1061,7 +1008,7 @@ async function checkRepository(
           repo: repo.name,
           username: supposedCollaboratorName,
           permission: sheriffLevelToGitHubLevel(
-            repo.external_collaborators[supposedCollaboratorName],
+            repo.external_collaborators![supposedCollaboratorName],
           ),
         });
       }

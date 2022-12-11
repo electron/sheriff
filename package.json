@@ -29,6 +29,7 @@
     "googleapis": "^109.0.1",
     "joi": "^14.3.1",
     "js-yaml": "^3.13.1",
+    "ora": "^5.1.2",
     "queue": "^6.0.2"
   },
   "devDependencies": {

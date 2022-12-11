@@ -1,4 +1,4 @@
-import { Plugin, TeamConfig } from '../Plugin';
+import { Plugin } from '../Plugin';
 import { MessageBuilder } from '../../../MessageBuilder';
 import { memoize, IS_DRY_RUN } from '../../../helpers';
 import { getAuthorizedClient } from './auth';
@@ -6,6 +6,7 @@ import { google, admin_directory_v1 } from 'googleapis';
 import chalk from 'chalk';
 import { privacySettings } from './privacy';
 import { SHERIFF_GSUITE_DOMAIN, SHERIFF_SLACK_DOMAIN } from '../../../constants';
+import { TeamConfig } from '../../types';
 
 const getService = memoize(async () =>
   google.admin({ version: 'directory_v1', auth: getAuthorizedClient() }),

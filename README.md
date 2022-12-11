@@ -106,6 +106,8 @@ repository_defaults:
 # Teams are not specific to a single platform; they are shared across GitHub, Slack and GSuite
 teams:
   - name: <team name>
+    # A list of members / maintainers of this GitHub team
+    # Maintainer in GitHub conveys some extra permissions over the team (set description, avatar, etc.)
     members:
       - list
       - of
@@ -114,6 +116,19 @@ teams:
       - list
       - of
       - gh_usernames
+    # Or don't provide members/maintainers and instead provide a list of other
+    # teams to draw users from.  This doesn't set any parent/child relationship
+    # rather it simply says:
+    # for team of formation:
+    #   self.members += team.members
+    #   self.maintainers += team.maintainers
+    # i.e. doing a union of members/maintainers of the formation teams to create
+    # a new member list
+    formation:
+      - list
+      - of
+      - other
+      - teams
     # Optional team properties
     # Human friendly display name for GSuite and Slack groups
     displayName: <string>
@@ -139,6 +154,21 @@ repositories:
     # Public vs Private repository, no value is assumed to mean public
     visibility: public | private
 ```
+
+#### Generating your initial configuration
+
+You can generate a permissions file for the current state of your org using the `generate` helper script.
+
+```bash
+node lib/permissions/generate.js
+```
+
+Please note you may want to edit this generated YAML file:
+* All org owners are considered `maintainers` of the teams they are in, this may be semantically incorrect
+* No GSuite or slack configuration is included in the generated file
+* You may want to use the `formation` property to declare larger teams instead of listing all members individually
+
+However in theory running Sheriff immediately on this generated file should result in a no-op run.
 
 ## Deployment Recommendations
 
