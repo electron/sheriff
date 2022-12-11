@@ -212,7 +212,7 @@ webhooks.on(
     await MessageBuilder.create()
       .setEventPayload(event)
       .setNotificationContent(text)
-      .addBlock(createMessageBlock(text))
+      .addBlock(createMarkdownBlock(text))
       .addUser(event.payload.member, 'Collaborator')
       .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
       .addSeverity('normal')
