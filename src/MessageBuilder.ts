@@ -2,6 +2,7 @@ import { IncomingWebhook, IncomingWebhookSendArguments } from '@slack/webhook';
 import { RepositoryCreatedEvent } from '@octokit/webhooks-types';
 import { KnownBlock } from '@slack/types';
 import { AUTO_TUNNEL_NGROK, SHERIFF_HOST_URL, SLACK_WEBHOOK_URL } from './constants';
+import { SheriffAccessLevel } from './permissions/types';
 
 const HOST = AUTO_TUNNEL_NGROK ? `https://${AUTO_TUNNEL_NGROK}.ngrok.io` : SHERIFF_HOST_URL;
 
@@ -168,7 +169,10 @@ export class MessageBuilder {
     return this;
   }
 
-  public addPermissionEnforcement(action: PermissionEnforcementAction) {
+  public addPermissionEnforcement(
+    action: PermissionEnforcementAction,
+    expectedLevel?: SheriffAccessLevel,
+  ) {
     if (action == PermissionEnforcementAction.ALLOW_CHANGE) return this;
 
     if (action === PermissionEnforcementAction.REVERT_CHANGE) {
@@ -187,7 +191,7 @@ export class MessageBuilder {
         elements: [
           {
             type: 'mrkdwn',
-            text: ':twisted_rightwards_arrows:   *This permissions change was automatically adjusted to the correct state*',
+            text: `:twisted_rightwards_arrows:   *This permissions change was automatically adjusted to the correct state of \`${expectedLevel}\`*`,
           },
         ],
       });

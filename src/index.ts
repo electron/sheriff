@@ -30,6 +30,7 @@ import {
   gitHubPermissionsToSheriffLevel,
   sheriffLevelToGitHubLevel,
 } from './permissions/level-converters';
+import { SheriffAccessLevel } from './permissions/types';
 
 const webhooks = new WebhooksApi({
   secret: GITHUB_WEBHOOK_SECRET,
@@ -108,19 +109,23 @@ async function takeActionOnRepositoryCollaborator(
     | EmitterWebhookEvent<'member.added'>
     | EmitterWebhookEvent<'member.edited'>
     | EmitterWebhookEvent<'member.removed'>,
-): Promise<PermissionEnforcementAction> {
+): Promise<{ action: PermissionEnforcementAction; expectedLevel?: SheriffAccessLevel }> {
   const repo = event.payload.repository;
   const member = event.payload.member;
 
   const currentConfig = await getValidatedConfig();
   const targetRepoConfig = currentConfig.repositories.find((r) => r.name === repo.name);
-  if (!targetRepoConfig) return PermissionEnforcementAction.ALLOW_CHANGE;
+  if (!targetRepoConfig) return { action: PermissionEnforcementAction.ALLOW_CHANGE };
 
   const expectedLevel = targetRepoConfig.external_collaborators?.[member.login];
   // They should not be on this repository
   if (!expectedLevel) {
     // If they were removed this is an expected change
-    if (event.payload.action === 'removed') return PermissionEnforcementAction.ALLOW_CHANGE;
+    if (event.payload.action === 'removed')
+      return {
+        action: PermissionEnforcementAction.ALLOW_CHANGE,
+        expectedLevel,
+      };
 
     const octokit = await getOctokit();
     await octokit.repos.removeCollaborator({
@@ -128,7 +133,10 @@ async function takeActionOnRepositoryCollaborator(
       repo: repo.name,
       username: member.login,
     });
-    return PermissionEnforcementAction.REVERT_CHANGE;
+    return {
+      action: PermissionEnforcementAction.REVERT_CHANGE,
+      expectedLevel,
+    };
   }
 
   const octokit = await getOctokit();
@@ -152,18 +160,25 @@ async function takeActionOnRepositoryCollaborator(
       username: member.login,
       permission: sheriffLevelToGitHubLevel(expectedLevel),
     });
-    return event.payload.action === 'removed'
-      ? PermissionEnforcementAction.REVERT_CHANGE
-      : PermissionEnforcementAction.ADJUSTED_CHANGE;
+    return {
+      action:
+        event.payload.action === 'removed'
+          ? PermissionEnforcementAction.REVERT_CHANGE
+          : PermissionEnforcementAction.ADJUSTED_CHANGE,
+      expectedLevel,
+    };
   }
 
-  return PermissionEnforcementAction.ALLOW_CHANGE;
+  return {
+    action: PermissionEnforcementAction.ALLOW_CHANGE,
+    expectedLevel,
+  };
 }
 
 webhooks.on(
   'member.added',
   hook(async (event) => {
-    const action = await takeActionOnRepositoryCollaborator(event);
+    const { action, expectedLevel } = await takeActionOnRepositoryCollaborator(event);
     if (action === PermissionEnforcementAction.ALLOW_CHANGE) return;
 
     const text =
@@ -177,7 +192,7 @@ webhooks.on(
       .addUser(event.payload.member, 'Collaborator')
       .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
       .addSeverity('normal')
-      .addPermissionEnforcement(action)
+      .addPermissionEnforcement(action, expectedLevel)
       .send();
   }),
 );
@@ -185,7 +200,7 @@ webhooks.on(
 webhooks.on(
   'member.removed',
   hook(async (event) => {
-    const action = await takeActionOnRepositoryCollaborator(event);
+    const { action, expectedLevel } = await takeActionOnRepositoryCollaborator(event);
     if (action === PermissionEnforcementAction.ALLOW_CHANGE) return;
 
     const text = 'A collaborator was unexpectedly removed from a repository';
@@ -196,7 +211,7 @@ webhooks.on(
       .addUser(event.payload.member, 'Collaborator')
       .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
       .addSeverity('normal')
-      .addPermissionEnforcement(action)
+      .addPermissionEnforcement(action, expectedLevel)
       .send();
   }),
 );
@@ -204,7 +219,7 @@ webhooks.on(
 webhooks.on(
   'member.edited',
   hook(async (event) => {
-    const action = await takeActionOnRepositoryCollaborator(event);
+    const { action, expectedLevel } = await takeActionOnRepositoryCollaborator(event);
     if (action === PermissionEnforcementAction.ALLOW_CHANGE) return;
 
     // Collaborator has permission level changed on repo
@@ -225,7 +240,7 @@ webhooks.on(
       .addUser(event.payload.member, 'Collaborator')
       .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
       .addSeverity('normal')
-      .addPermissionEnforcement(action)
+      .addPermissionEnforcement(action, expectedLevel)
       .send();
   }),
 );
