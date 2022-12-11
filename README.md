@@ -4,7 +4,7 @@
 
 This bot, when deployed as a Heroku app and configured correctly, is capable of controlling permissions
 across GitHub, Slack and GSuite.  It also actively monitors and alerts you to suspicious or unexpected
-activity on GitHub. 
+activity on GitHub.
 
 ## How It Works
 
@@ -104,7 +104,6 @@ The following environment variables represent the configuration of the actual Sh
 | `GSUITE_TOKEN` | | GSuite authentication token | `gsuite` |
 | `SHERIFF_GSUITE_DOMAIN` | | The primary domain of your GSuite account | `gsuite` `slack` |
 | `SHERIFF_SLACK_DOMAIN` | | The "domain" part of `{domain}.slack.com` for your Slack instance  | `gsuite` if you add slack email addresses to your google groups for notifications |
-
 
 ### Permissions File
 
