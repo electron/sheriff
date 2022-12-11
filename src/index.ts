@@ -191,7 +191,7 @@ webhooks.on(
       .addBlock(createMessageBlock(text))
       .addUser(event.payload.member, 'Collaborator')
       .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
-      .addSeverity('normal')
+      .addSeverity('critical')
       .addPermissionEnforcement(action, expectedLevel)
       .send();
   }),
@@ -210,7 +210,7 @@ webhooks.on(
       .addBlock(createMessageBlock(text))
       .addUser(event.payload.member, 'Collaborator')
       .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
-      .addSeverity('normal')
+      .addSeverity('critical')
       .addPermissionEnforcement(action, expectedLevel)
       .send();
   }),
@@ -239,7 +239,7 @@ webhooks.on(
       .addBlock(createMarkdownBlock(text))
       .addUser(event.payload.member, 'Collaborator')
       .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
-      .addSeverity('normal')
+      .addSeverity('critical')
       .addPermissionEnforcement(action, expectedLevel)
       .send();
   }),
