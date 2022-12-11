@@ -4,7 +4,7 @@
 
 This bot, when deployed as a Heroku app and configured correctly, is capable of controlling permissions
 across GitHub, Slack and GSuite.  It also actively monitors and alerts you to suspicious or unexpected
-activity on GitHub.
+activity on GitHub. 
 
 ## How It Works
 
@@ -45,6 +45,18 @@ You want to specify the following options:
 
 Finally, click "Add webhook".
 
+### The GitHub App
+
+To manage GitHub instances, Sheriff requires you to create a GitHub App that gets installed in the desired Org.
+
+Once created, you can generate and download a Private Key for the app, and supply it to Sheriff.
+
+Before setting it as `SHERIFF_GITHUB_APP_CREDS`, you must pass it through a utility to change the format to what Octokit is expecting:
+
+```
+npx @electron/github-app-auth --creds={path-to-downloaded-private-key} --app-id={id-from-created-github-app}
+```
+
 ### The Cron Job
 
 The actual permissions controller should be triggered every 10 minutes as a cron job. You can run this job with:
@@ -79,6 +91,8 @@ The following environment variables represent the configuration of the actual Sh
 | Name | Required | Value | For Plugin |
 |------|----------|-------|------------|
 | `PERMISSIONS_FILE_ORG` | ✔️ | The name of the GitHub org where you put the `.permissions` repository | |
+| `PERMISSIONS_FILE_REPO` | | Override the default repo to look for `config.yaml` | `.permissions` |
+| `PERMISSIONS_FILE_PATH` | | Override the default filepath to look for the Sheriff config | `config.yaml` |
 | `GITHUB_WEBHOOK_SECRET` | ✔️ | The secret for the org-wide webhook you configured earlier | |
 | `SLACK_TOKEN` | ✔️ | The token for your Slack App you created earlier | |
 | `SLACK_WEBHOOK_URL` | ✔️ | The webhook URL for your Slack App you created earlier | |
@@ -90,6 +104,9 @@ The following environment variables represent the configuration of the actual Sh
 | `GSUITE_TOKEN` | | GSuite authentication token | `gsuite` |
 | `SHERIFF_GSUITE_DOMAIN` | | The primary domain of your GSuite account | `gsuite` `slack` |
 | `SHERIFF_SLACK_DOMAIN` | | The "domain" part of `{domain}.slack.com` for your Slack instance  | `gsuite` if you add slack email addresses to your google groups for notifications |
+| `ORGANIZATION_NAME` | | GitHub org that the GitHub App has been installed to | `electron` |
+| `REPO_NAME` | | GitHub repo that the GitHub App has been installed to  | `electron` |
+
 
 ### Permissions File
 
