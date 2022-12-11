@@ -150,7 +150,7 @@ const validateConfigFast = async (config: PermissionsConfig) => {
         gsuite: Joi.object({
           privacy: Joi.string().only('internal', 'external').required(),
         }).optional(),
-        slack: Joi.string().min(1).allow(true).optional(),
+        slack: Joi.string().min(1).allow(true).allow(false).optional(),
       })
       .required(),
     repositories: Joi.array()

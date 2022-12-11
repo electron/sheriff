@@ -8,7 +8,11 @@ const SCOPES = [
   'https://www.googleapis.com/auth/apps.groups.settings',
 ];
 
-const credentials = JSON.parse(Buffer.from(GSUITE_CREDENTIALS!, 'base64').toString());
+let credentials: any = {};
+
+if (GSUITE_CREDENTIALS != undefined && GSUITE_CREDENTIALS != '') {
+  credentials = JSON.parse(Buffer.from(GSUITE_CREDENTIALS!, 'base64').toString());
+}
 
 export function getAuthorizedClient() {
   const { client_secret, client_id, redirect_uris } = credentials.installed;
