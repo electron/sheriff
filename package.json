@@ -16,7 +16,7 @@
   },
   "author": "Samuel Attard",
   "dependencies": {
-    "@electron/github-app-auth": "^1.4.0",
+    "@electron/github-app-auth": "^1.5.0",
     "@octokit/graphql": "^4.8.0",
     "@octokit/rest": "^18.12.0",
     "@octokit/webhooks": "^9.23.0",

@@ -104,8 +104,6 @@ The following environment variables represent the configuration of the actual Sh
 | `GSUITE_TOKEN` | | GSuite authentication token | `gsuite` |
 | `SHERIFF_GSUITE_DOMAIN` | | The primary domain of your GSuite account | `gsuite` `slack` |
 | `SHERIFF_SLACK_DOMAIN` | | The "domain" part of `{domain}.slack.com` for your Slack instance  | `gsuite` if you add slack email addresses to your google groups for notifications |
-| `ORGANIZATION_NAME` | | GitHub org that the GitHub App has been installed to | `electron` |
-| `REPO_NAME` | | GitHub repo that the GitHub App has been installed to  | `electron` |
 
 
 ### Permissions File

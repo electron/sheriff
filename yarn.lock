@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@electron/github-app-auth@^1.4.0":
-  version "1.4.0"
-  resolved "https://registry.yarnpkg.com/@electron/github-app-auth/-/github-app-auth-1.4.0.tgz#74a6247299237093d5558e0012b6ea0af4265744"
-  integrity sha512-fzGQmBohQIAreqorA0v1NcMlsaNxcLCZAGlFbwm9AR78xQi0ZHlTRAYYOaWh//Hfja3WIF/LI5i8c/SJ5JYyEQ==
+"@electron/github-app-auth@^1.5.0":
+  version "1.5.0"
+  resolved "https://registry.yarnpkg.com/@electron/github-app-auth/-/github-app-auth-1.5.0.tgz#426e64ba50143417d9b68f2795a1b119cb62108b"
+  integrity sha512-t6Za+3E7jdIf1CX06nNV/avZhqSXNEkCLJ1xeAt5FKU9HdGbjzwSfirM+UlHO7lMGyuf13BGCZOCB1kODhDLWQ==
   dependencies:
     "@octokit/auth-app" "^3.6.1"
     "@octokit/rest" "^18.12.0"
