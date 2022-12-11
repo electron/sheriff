@@ -10,7 +10,12 @@ import {
   EmitterWebhookEvent,
 } from '@octokit/webhooks';
 import { isMainRepo, hook } from './helpers';
-import { MessageBuilder, createMessageBlock, createMarkdownBlock } from './MessageBuilder';
+import {
+  MessageBuilder,
+  createMessageBlock,
+  createMarkdownBlock,
+  PermissionEnforcementAction,
+} from './MessageBuilder';
 import { getOctokit } from './octokit';
 import {
   AUTO_TUNNEL_NGROK,
@@ -98,11 +103,6 @@ webhooks.on(
   }),
 );
 
-enum PermissionEnforcementAction {
-  ALLOW_CHANGE,
-  REVERT_CHANGE,
-}
-
 async function takeActionOnRepositoryCollaborator(
   event:
     | EmitterWebhookEvent<'member.added'>
@@ -152,7 +152,9 @@ async function takeActionOnRepositoryCollaborator(
       username: member.login,
       permission: sheriffLevelToGitHubLevel(expectedLevel),
     });
-    return PermissionEnforcementAction.REVERT_CHANGE;
+    return event.payload.action === 'removed'
+      ? PermissionEnforcementAction.REVERT_CHANGE
+      : PermissionEnforcementAction.ADJUSTED_CHANGE;
   }
 
   return PermissionEnforcementAction.ALLOW_CHANGE;
@@ -164,7 +166,10 @@ webhooks.on(
     const action = await takeActionOnRepositoryCollaborator(event);
     if (action === PermissionEnforcementAction.ALLOW_CHANGE) return;
 
-    const text = 'An unexpected new collaborator was added to a repository';
+    const text =
+      action === PermissionEnforcementAction.REVERT_CHANGE
+        ? 'An unexpected new collaborator was added to a repository'
+        : 'A new collaborator was added to a repository at an unexpected permission level';
     await MessageBuilder.create()
       .setEventPayload(event)
       .setNotificationContent(text)
@@ -172,7 +177,7 @@ webhooks.on(
       .addUser(event.payload.member, 'Collaborator')
       .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
       .addSeverity('normal')
-      .addReverted()
+      .addPermissionEnforcement(action)
       .send();
   }),
 );
@@ -191,7 +196,7 @@ webhooks.on(
       .addUser(event.payload.member, 'Collaborator')
       .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
       .addSeverity('normal')
-      .addReverted()
+      .addPermissionEnforcement(action)
       .send();
   }),
 );
@@ -220,7 +225,7 @@ webhooks.on(
       .addUser(event.payload.member, 'Collaborator')
       .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
       .addSeverity('normal')
-      .addReverted()
+      .addPermissionEnforcement(action)
       .send();
   }),
 );

@@ -30,6 +30,12 @@ export const createMarkdownBlock = (msg: string): KnownBlock => ({
   },
 });
 
+export enum PermissionEnforcementAction {
+  ALLOW_CHANGE,
+  REVERT_CHANGE,
+  ADJUSTED_CHANGE,
+}
+
 export class MessageBuilder {
   private state: IncomingWebhookSendArguments = {};
   private eventPayload: unknown = null;
@@ -162,16 +168,30 @@ export class MessageBuilder {
     return this;
   }
 
-  public addReverted() {
-    this.addBlock({
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: ':black_left_pointing_double_triangle_with_vertical_bar:   *This permissions change was automatically reverted*',
-        },
-      ],
-    });
+  public addPermissionEnforcement(action: PermissionEnforcementAction) {
+    if (action == PermissionEnforcementAction.ALLOW_CHANGE) return this;
+
+    if (action === PermissionEnforcementAction.REVERT_CHANGE) {
+      this.addBlock({
+        type: 'context',
+        elements: [
+          {
+            type: 'mrkdwn',
+            text: ':black_left_pointing_double_triangle_with_vertical_bar:   *This permissions change was automatically reverted*',
+          },
+        ],
+      });
+    } else {
+      this.addBlock({
+        type: 'context',
+        elements: [
+          {
+            type: 'mrkdwn',
+            text: ':twisted_rightwards_arrows:   *This permissions change was automatically adjusted to the correct state*',
+          },
+        ],
+      });
+    }
     return this;
   }
 
