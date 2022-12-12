@@ -49,6 +49,18 @@ Finally, click "Add webhook".
 
 To manage GitHub instances, Sheriff requires you to create a GitHub App that gets installed in the desired Org.
 
+The app needs the following OAuth scopes permitted:
+
+```
+Org:
+administration:write
+contents:read
+metadata:read
+
+Repo:
+members:write
+```
+
 Once created, you can generate and download a Private Key for the app, and supply it to Sheriff.
 
 Before setting it as `SHERIFF_GITHUB_APP_CREDS`, you must pass it through a utility to change the format to what Octokit is expecting:
