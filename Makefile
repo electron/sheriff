@@ -4,6 +4,9 @@ image-run:
 image-run-job:
 	docker run --rm --env-file .env $$(whoami)/sheriff node lib/permissions/run.js
 
+image-run-generate:
+	docker run --rm --env-file .env $$(whoami)/sheriff node lib/permissions/generate.js
+
 image:
 	docker build -t $$(whoami)/sheriff .
 
