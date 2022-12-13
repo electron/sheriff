@@ -10,7 +10,12 @@ import { memoize, IS_DRY_RUN } from '../helpers';
 import { GetResponseDataTypeFromEndpointMethod } from '@octokit/types';
 import { MessageBuilder } from '../MessageBuilder';
 import { plugins } from './plugins';
-import { PERMISSIONS_FILE_ORG, PERMISSIONS_FILE_PATH, PERMISSIONS_FILE_REPO } from '../constants';
+import {
+  PERMISSIONS_FILE_ORG,
+  PERMISSIONS_FILE_PATH,
+  PERMISSIONS_FILE_REPO,
+  PERMISSIONS_FILE_REF,
+} from '../constants';
 import {
   PermissionsConfig,
   RepoSettings,
@@ -40,6 +45,7 @@ const loadCurrentConfig = async () => {
     owner: PERMISSIONS_FILE_ORG,
     repo: PERMISSIONS_FILE_REPO,
     path: PERMISSIONS_FILE_PATH,
+    ref: PERMISSIONS_FILE_REF,
   });
   if (Array.isArray(contents.data)) throw new Error('Invalid config file');
 

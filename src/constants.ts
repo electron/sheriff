@@ -4,6 +4,7 @@ export const GITHUB_WEBHOOK_SECRET = process.env.GITHUB_WEBHOOK_SECRET || 'devel
 export const PERMISSIONS_FILE_ORG = process.env.PERMISSIONS_FILE_ORG!;
 export const PERMISSIONS_FILE_REPO = process.env.PERMISSIONS_FILE_REPO || '.permissions';
 export const PERMISSIONS_FILE_PATH = process.env.PERMISSIONS_FILE_PATH || 'config.yaml';
+export const PERMISSIONS_FILE_REF = process.env.PERMISSIONS_FILE_REF || 'main';
 
 export const SHERIFF_IMPORTANT_BRANCH = process.env.SHERIFF_IMPORTANT_BRANCH;
 
