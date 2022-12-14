@@ -15,6 +15,9 @@ import {
   PERMISSIONS_FILE_PATH,
   PERMISSIONS_FILE_REPO,
   PERMISSIONS_FILE_REF,
+  PR_FILE_ORG,
+  PR_FILE_REF,
+  PR_FILE_REPO,
 } from '../constants';
 import {
   PermissionsConfig,
@@ -42,10 +45,10 @@ const loadCurrentConfig = async () => {
 
   const octokit = await getOctokit();
   const contents = await octokit.repos.getContent({
-    owner: PERMISSIONS_FILE_ORG,
-    repo: PERMISSIONS_FILE_REPO,
+    owner: PR_FILE_ORG ? PR_FILE_ORG : PERMISSIONS_FILE_ORG,
+    repo: PR_FILE_REPO ? PR_FILE_REPO : PERMISSIONS_FILE_REPO,
     path: PERMISSIONS_FILE_PATH,
-    ref: PERMISSIONS_FILE_REF,
+    ref: PR_FILE_REF ? PR_FILE_REF : PERMISSIONS_FILE_REF,
   });
   if (Array.isArray(contents.data)) throw new Error('Invalid config file');
 

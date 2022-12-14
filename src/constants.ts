@@ -6,6 +6,10 @@ export const PERMISSIONS_FILE_REPO = process.env.PERMISSIONS_FILE_REPO || '.perm
 export const PERMISSIONS_FILE_PATH = process.env.PERMISSIONS_FILE_PATH || 'config.yaml';
 export const PERMISSIONS_FILE_REF = process.env.PERMISSIONS_FILE_REF || 'main';
 
+export const PR_FILE_ORG = process.env.PR_FILE_ORG!;
+export const PR_FILE_REPO = process.env.PR_FILE_REPO || '.permissions';
+export const PR_FILE_REF = process.env.PR_FILE_REF || 'main';
+
 export const SHERIFF_IMPORTANT_BRANCH = process.env.SHERIFF_IMPORTANT_BRANCH;
 
 export const AUTO_TUNNEL_NGROK = process.env.AUTO_TUNNEL_NGROK;

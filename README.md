@@ -106,6 +106,9 @@ The following environment variables represent the configuration of the actual Sh
 | `PERMISSIONS_FILE_REPO` | | Override the default repo to look for `config.yaml` | `.permissions` |
 | `PERMISSIONS_FILE_PATH` | | Override the default filepath to look for the Sheriff config | `config.yaml` |
 | `PERMISSIONS_FILE_REF` | | Override the default repo branch to look for the Sheriff config | `main` |
+| `PR_FILE_ORG` | | The name of the GitHub org where the PR has the `.permissions` repository | |
+| `PR_FILE_REPO` | | the name of the PR repo containing `config.yaml` | `.permissions` |
+| `PR_FILE_REF` | | The repo branch to look for the Sheriff config for the PR | `main` |
 | `GITHUB_WEBHOOK_SECRET` | ✔️ | The secret for the org-wide webhook you configured earlier | |
 | `SLACK_TOKEN` | ✔️ | The token for your Slack App you created earlier | |
 | `SLACK_WEBHOOK_URL` | ✔️ | The webhook URL for your Slack App you created earlier | |
