@@ -40,7 +40,7 @@ const loadCurrentConfig = async () => {
     throw new Error('Missing PERMISSIONS_FILE_ORG env var');
   }
 
-  const octokit = await getOctokit();
+  const octokit = await getOctokit(PERMISSIONS_FILE_ORG);
   const contents = await octokit.repos.getContent({
     owner: PERMISSIONS_FILE_ORG,
     repo: PERMISSIONS_FILE_REPO,
@@ -213,7 +213,7 @@ async function main() {
   const allRepos = await listAllOrgRepos(config);
   const allTeams = await listAllTeams(config);
 
-  const octokit = await getOctokit();
+  const octokit = await getOctokit(config.organization);
 
   const allUsers = await listAllOrgMembersAndOwners(config);
   const badUsers: string[] = [];
@@ -346,7 +346,7 @@ async function main() {
 }
 
 const listAllOrgOwners = memoize(async (config: PermissionsConfig) => {
-  const octokit = await getOctokit();
+  const octokit = await getOctokit(config.organization);
   return octokit.paginate(octokit.orgs.listMembers, {
     org: config.organization,
     role: 'admin',
@@ -354,14 +354,14 @@ const listAllOrgOwners = memoize(async (config: PermissionsConfig) => {
 });
 
 const listAllOrgMembersAndOwners = memoize(async (config: PermissionsConfig) => {
-  const octokit = await getOctokit();
+  const octokit = await getOctokit(config.organization);
   return octokit.paginate(octokit.orgs.listMembers, {
     org: config.organization,
   });
 });
 
 const listAllTeams = memoize(async (config: PermissionsConfig) => {
-  const octokit = await getOctokit();
+  const octokit = await getOctokit(config.organization);
   return octokit.paginate(octokit.teams.list, {
     org: config.organization,
     headers: {
@@ -371,7 +371,7 @@ const listAllTeams = memoize(async (config: PermissionsConfig) => {
 });
 
 const listAllOrgRepos = memoize(async (config: PermissionsConfig) => {
-  const octokit = await getOctokit();
+  const octokit = await getOctokit(config.organization);
   const repos = await octokit.paginate(octokit.repos.listForOrg, {
     org: config.organization,
   });
@@ -404,7 +404,7 @@ async function findTeamByName(
   config: PermissionsConfig,
   teamName: string,
 ): Promise<GetResponseDataTypeFromEndpointMethod<typeof octokit.teams.list>[0]> {
-  const octokit = await getOctokit();
+  const octokit = await getOctokit(config.organization);
   const allTeams = await listAllTeams(config);
   const matchingTeams = allTeams.filter((team) => team.name === teamName);
   if (matchingTeams.length > 1)
@@ -438,7 +438,7 @@ async function findTeamByName(
 async function checkTeam(builder: MessageBuilder, config: PermissionsConfig, team: TeamConfig) {
   const octoTeam = await findTeamByName(builder, config, team.name);
   const orgOwners = await listAllOrgOwners(config);
-  const octokit = await getOctokit();
+  const octokit = await getOctokit(config.organization);
 
   const proposedPrivacy = team.secret ? 'secret' : 'closed';
   if (octoTeam.privacy !== proposedPrivacy) {
@@ -512,7 +512,7 @@ async function checkTeam(builder: MessageBuilder, config: PermissionsConfig, tea
       }
     }
     `;
-    const gql = await graphyOctokit();
+    const gql = await graphyOctokit(config.organization);
     const [memberRes, maintainerRes] = await Promise.all([
       gql(query, {
         org: config.organization,
@@ -708,7 +708,7 @@ const metadata = new Map<
   ResolveType<ReturnType<typeof loadRepositoryMetadata>>
 >();
 async function loadRepositoryMetadata(config: PermissionsConfig, repo: RepositoryConfig) {
-  const octokit = await getOctokit();
+  const octokit = await getOctokit(config.organization);
   const [currentTeams, currentInvites, currentCollaborators] = await Promise.all([
     octokit.paginate(octokit.repos.listTeams, {
       owner: config.organization,
@@ -759,7 +759,7 @@ async function checkRepository(
         chalk.magenta(gitHubPermissionsToSheriffLevel(currentTeam.permissions!)),
       );
       if (!IS_DRY_RUN) {
-        const octokit = await getOctokit();
+        const octokit = await getOctokit(config.organization);
         await octokit.teams.removeRepoInOrg({
           team_slug: currentTeam.slug,
           org: config.organization,
@@ -787,7 +787,7 @@ async function checkRepository(
           chalk.magenta(supposedLevel),
         );
         if (!IS_DRY_RUN) {
-          const octokit = await getOctokit();
+          const octokit = await getOctokit(config.organization);
           await octokit.teams.addOrUpdateRepoPermissionsInOrg({
             team_slug: currentTeam.slug,
             org: config.organization,
@@ -818,7 +818,7 @@ async function checkRepository(
         chalk.magenta(repo.teams![supposedTeamName]),
       );
       if (!IS_DRY_RUN) {
-        const octokit = await getOctokit();
+        const octokit = await getOctokit(config.organization);
         await octokit.teams.addOrUpdateRepoPermissionsInOrg({
           owner: config.organization,
           repo: repo.name,
@@ -847,7 +847,7 @@ async function checkRepository(
         chalk.magenta(currentInvite.permissions),
       );
       if (!IS_DRY_RUN) {
-        const octokit = await getOctokit();
+        const octokit = await getOctokit(config.organization);
         await octokit.repos.deleteInvitation({
           owner: config.organization,
           repo: repo.name,
@@ -874,7 +874,7 @@ async function checkRepository(
           chalk.magenta(supposedLevel),
         );
         if (!IS_DRY_RUN) {
-          const octokit = await getOctokit();
+          const octokit = await getOctokit(config.organization);
           await octokit.repos.updateInvitation({
             owner: config.organization,
             repo: repo.name,
@@ -904,7 +904,7 @@ async function checkRepository(
         chalk.magenta(gitHubPermissionsToSheriffLevel(currentCollaborator.permissions!)),
       );
       if (!IS_DRY_RUN) {
-        const octokit = await getOctokit();
+        const octokit = await getOctokit(config.organization);
         await octokit.repos.removeCollaborator({
           owner: config.organization,
           repo: repo.name,
@@ -931,7 +931,7 @@ async function checkRepository(
           chalk.magenta(supposedLevel),
         );
         if (!IS_DRY_RUN) {
-          const octokit = await getOctokit();
+          const octokit = await getOctokit(config.organization);
           await octokit.repos.addCollaborator({
             owner: config.organization,
             repo: repo.name,
@@ -952,7 +952,7 @@ async function checkRepository(
     builder.addContext(`:speak_no_evil: Updating repostiory settings for \`${octoRepo.name}\``);
     console.info(chalk.yellow('Updating repository settings for'), chalk.cyan(octoRepo.name));
     if (!IS_DRY_RUN) {
-      const octokit = await getOctokit();
+      const octokit = await getOctokit(config.organization);
       await octokit.repos.update({
         owner: config.organization,
         repo: octoRepo.name,
@@ -974,7 +974,7 @@ async function checkRepository(
       chalk.magenta(repoVisibility),
     );
     if (!IS_DRY_RUN) {
-      const octokit = await getOctokit();
+      const octokit = await getOctokit(config.organization);
       await octokit.repos.update({
         owner: config.organization,
         repo: octoRepo.name,
@@ -1008,7 +1008,7 @@ async function checkRepository(
         chalk.magenta(repo.external_collaborators![supposedCollaboratorName]),
       );
       if (!IS_DRY_RUN) {
-        const octokit = await getOctokit();
+        const octokit = await getOctokit(config.organization);
         await octokit.repos.addCollaborator({
           owner: config.organization,
           repo: repo.name,

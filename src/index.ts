@@ -131,7 +131,7 @@ webhooks.on(
     // Collaborator has permission level changed on repo
     const originalPermission = (event.payload as any).changes.permission.from;
     // We have to fetch the new permission level through the API
-    const octokit = await getOctokit();
+    const octokit = await getOctokit(event.payload.repository.owner.login);
     const newPermissionLevel = await octokit.repos.getCollaboratorPermissionLevel({
       owner: event.payload.repository.owner.login,
       repo: event.payload.repository.name,
