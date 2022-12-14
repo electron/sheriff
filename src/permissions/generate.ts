@@ -13,7 +13,7 @@ async function main(spinner: ora.Ora) {
   if (!targetOrg) {
     throw new Error('Missing value for PERMISSIONS_FILE_ORG');
   }
-  const octokit = await getOctokit(true);
+  const octokit = await getOctokit(targetOrg, true);
 
   const permissions: PermissionsConfig = {
     organization: targetOrg,

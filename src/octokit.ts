@@ -6,7 +6,7 @@ import {
   getAuthOptionsForOrg,
   getTokenForOrg,
 } from '@electron/github-app-auth';
-import { SHERIFF_GITHUB_APP_CREDS, PERMISSIONS_FILE_ORG } from './constants';
+import { SHERIFF_GITHUB_APP_CREDS } from './constants';
 import { IS_DRY_RUN } from './helpers';
 
 require('dotenv-safe').config();
@@ -36,22 +36,18 @@ function getAuthNarrowing(forceReadOnly: boolean): AuthNarrowing {
 }
 
 let octokit: Octokit;
-export async function getOctokit(forceReadOnly = false) {
+export async function getOctokit(org: string, forceReadOnly = false) {
   if (octokit) return octokit;
 
   const creds = appCredentialsFromString(SHERIFF_GITHUB_APP_CREDS!);
-  const authOpts = await getAuthOptionsForOrg(
-    PERMISSIONS_FILE_ORG,
-    creds,
-    getAuthNarrowing(forceReadOnly),
-  );
+  const authOpts = await getAuthOptionsForOrg(org, creds, getAuthNarrowing(forceReadOnly));
   octokit = new Octokit({ ...authOpts });
   return octokit;
 }
 
-export async function graphyOctokit(forceReadOnly = false) {
+export async function graphyOctokit(org: string, forceReadOnly = false) {
   const creds = appCredentialsFromString(SHERIFF_GITHUB_APP_CREDS!);
-  const token = await getTokenForOrg(PERMISSIONS_FILE_ORG, creds, getAuthNarrowing(forceReadOnly));
+  const token = await getTokenForOrg(org, creds, getAuthNarrowing(forceReadOnly));
   return graphql.defaults({
     headers: {
       authorization: `token ${token}`,
