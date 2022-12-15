@@ -35,14 +35,16 @@ function getAuthNarrowing(forceReadOnly: boolean): AuthNarrowing {
   };
 }
 
-let octokit: Octokit;
+// org <-> Octokit
+let octokitMap: Map<string, Octokit> = new Map();
 export async function getOctokit(org: string, forceReadOnly = false) {
-  if (octokit) return octokit;
+  if (!octokitMap.has(org)) {
+    const creds = appCredentialsFromString(SHERIFF_GITHUB_APP_CREDS!);
+    const authOpts = await getAuthOptionsForOrg(org, creds, getAuthNarrowing(forceReadOnly));
+    octokitMap.set(org, new Octokit({ ...authOpts }));
+  }
 
-  const creds = appCredentialsFromString(SHERIFF_GITHUB_APP_CREDS!);
-  const authOpts = await getAuthOptionsForOrg(org, creds, getAuthNarrowing(forceReadOnly));
-  octokit = new Octokit({ ...authOpts });
-  return octokit;
+  return octokitMap.get(org)!;
 }
 
 export async function graphyOctokit(org: string, forceReadOnly = false) {
