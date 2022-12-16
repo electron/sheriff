@@ -2,6 +2,7 @@ import { IncomingWebhook, IncomingWebhookSendArguments } from '@slack/webhook';
 import { RepositoryCreatedEvent } from '@octokit/webhooks-types';
 import { KnownBlock } from '@slack/types';
 import { AUTO_TUNNEL_NGROK, SHERIFF_HOST_URL, SLACK_WEBHOOK_URL } from './constants';
+import { SheriffAccessLevel } from './permissions/types';
 
 const HOST = AUTO_TUNNEL_NGROK ? `https://${AUTO_TUNNEL_NGROK}.ngrok.io` : SHERIFF_HOST_URL;
 
@@ -29,6 +30,12 @@ export const createMarkdownBlock = (msg: string): KnownBlock => ({
     text: msg,
   },
 });
+
+export enum PermissionEnforcementAction {
+  ALLOW_CHANGE,
+  REVERT_CHANGE,
+  ADJUSTED_CHANGE,
+}
 
 export class MessageBuilder {
   private state: IncomingWebhookSendArguments = {};
@@ -158,6 +165,36 @@ export class MessageBuilder {
         return this.addCritical(
           '*This alert is considered critical, please investigate immediately @channel*',
         );
+    }
+    return this;
+  }
+
+  public addPermissionEnforcement(
+    action: PermissionEnforcementAction,
+    expectedLevel?: SheriffAccessLevel,
+  ) {
+    if (action == PermissionEnforcementAction.ALLOW_CHANGE) return this;
+
+    if (action === PermissionEnforcementAction.REVERT_CHANGE) {
+      this.addBlock({
+        type: 'context',
+        elements: [
+          {
+            type: 'mrkdwn',
+            text: ':black_left_pointing_double_triangle_with_vertical_bar:   *This permissions change was automatically reverted*',
+          },
+        ],
+      });
+    } else {
+      this.addBlock({
+        type: 'context',
+        elements: [
+          {
+            type: 'mrkdwn',
+            text: `:twisted_rightwards_arrows:   *This permissions change was automatically adjusted to the correct state of \`${expectedLevel}\`*`,
+          },
+        ],
+      });
     }
     return this;
   }
