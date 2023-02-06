@@ -127,7 +127,7 @@ async function takeActionOnRepositoryCollaborator(
         expectedLevel,
       };
 
-    const octokit = await getOctokit();
+    const octokit = await getOctokit(repo.owner.login);
     await octokit.repos.removeCollaborator({
       owner: repo.owner.login,
       repo: repo.name,
@@ -139,7 +139,7 @@ async function takeActionOnRepositoryCollaborator(
     };
   }
 
-  const octokit = await getOctokit();
+  const octokit = await getOctokit(repo.owner.login);
   const allCollaborators = await octokit.paginate('GET /repos/{owner}/{repo}/collaborators', {
     owner: repo.owner.login,
     repo: repo.name,
