@@ -117,7 +117,24 @@ async function takeActionOnRepositoryCollaborator(
   const targetRepoConfig = currentConfig.repositories.find((r) => r.name === repo.name);
   if (!targetRepoConfig) return { action: PermissionEnforcementAction.ALLOW_CHANGE };
 
-  const expectedLevel = targetRepoConfig.external_collaborators?.[member.login];
+  let expectedLevel = targetRepoConfig.external_collaborators?.[member.login];
+
+  const octokit = await getOctokit(repo.owner.login);
+  const orgOwners = await octokit.paginate(octokit.orgs.listMembers, {
+    org: currentConfig.organization,
+    role: 'admin',
+  });
+  // In the case where the user is an org owner, regardless of the configured level at the repository level
+  // we should assume they are an admin.  It's actually impossible to lower their permission levels beyond
+  // that.  We should just allow all changes for org owners, it can't be a permission escalation.
+  if (orgOwners.some((owner) => owner.id === member.id)) {
+    expectedLevel = 'admin';
+    return {
+      action: PermissionEnforcementAction.ALLOW_CHANGE,
+      expectedLevel,
+    };
+  }
+
   // They should not be on this repository
   if (!expectedLevel) {
     // If they were removed this is an expected change
@@ -127,7 +144,6 @@ async function takeActionOnRepositoryCollaborator(
         expectedLevel,
       };
 
-    const octokit = await getOctokit(repo.owner.login);
     await octokit.repos.removeCollaborator({
       owner: repo.owner.login,
       repo: repo.name,
@@ -139,7 +155,6 @@ async function takeActionOnRepositoryCollaborator(
     };
   }
 
-  const octokit = await getOctokit(repo.owner.login);
   const allCollaborators = await octokit.paginate('GET /repos/{owner}/{repo}/collaborators', {
     owner: repo.owner.login,
     repo: repo.name,
