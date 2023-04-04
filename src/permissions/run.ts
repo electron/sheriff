@@ -118,6 +118,7 @@ const validateConfigFast = async (config: PermissionsConfig) => {
           has_wiki: Joi.boolean(),
         }).optional(),
         visibility: Joi.string().only('public', 'private').optional(),
+        archived: Joi.boolean().optional(),
       })
       .required(),
   });
@@ -985,6 +986,25 @@ async function checkRepository(
         owner: config.organization,
         repo: octoRepo.name,
         private: shouldBePrivate,
+      });
+    }
+  }
+
+  const shouldBeArchived = repo.archived || false;
+  if (octoRepo.archived !== shouldBeArchived) {
+    if (shouldBeArchived) {
+      builder.addContext(`:file_cabinet: Archiving \`${octoRepo.name}\``);
+      console.info(chalk.yellow('Archiving'), chalk.cyan(octoRepo.name));
+    } else {
+      builder.addContext(`:file_cabinet: Unarchiving \`${octoRepo.name}\``);
+      console.info(chalk.yellow('Unarchiving'), chalk.cyan(octoRepo.name));
+    }
+    if (!IS_DRY_RUN) {
+      const octokit = await getOctokit(config.organization);
+      await octokit.repos.update({
+        owner: config.organization,
+        repo: octoRepo.name,
+        archived: shouldBeArchived,
       });
     }
   }
