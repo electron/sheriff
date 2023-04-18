@@ -178,6 +178,10 @@ repositories:
       <team_name>: read | triage | write | maintain | admin
     external_collaborators:
       <gh_username>: read | triage | write | maintain | admin
+    # Optional repository settings
+    settings:
+      # Wiki enabled? true=yes, false=no
+      has_wiki: <boolean>
     # Public vs Private repository, no value is assumed to mean public
     visibility: public | private
 ```
