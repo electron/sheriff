@@ -184,6 +184,9 @@ repositories:
       has_wiki: <boolean>
     # Public vs Private repository, no value is assumed to mean public
     visibility: public | private
+    # Should the repo be archived, defaults to false
+    # Will unarchive the repo if changed from true to false
+    archived: <boolean>
 ```
 
 #### Generating your initial configuration

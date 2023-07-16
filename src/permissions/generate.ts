@@ -76,6 +76,7 @@ async function main(spinner: ora.Ora) {
     }})`;
     const repoConfig: RepositoryConfig = {
       name: repo.name,
+      archived: repo.archived,
     };
     const [currentTeams, currentCollaborators] = await Promise.all([
       octokit.paginate('GET /repos/{owner}/{repo}/teams', {
