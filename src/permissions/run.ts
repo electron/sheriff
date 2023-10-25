@@ -1028,16 +1028,38 @@ async function checkRepository(
     }
   }
 
-  if (!IS_DRY_RUN && repo.properties) {
+  if (repo.properties) {
     const octokit = await getOctokit(config.organization);
-    await octokit.orgs.createOrUpdateCustomPropertiesValuesForRepos({
-      org: config.organization,
-      repository_names: [repo.name],
-      properties: Object.entries(repo.properties).map(([key, value]) => ({
-        property_name: key,
-        value,
-      })),
+    const props = await octokit.repos.getCustomPropertiesValues({
+      owner: config.organization,
+      repo: repo.name,
     });
+
+    const sortProps = (a: typeof mappedProperties[0], b: typeof mappedProperties[0]) =>
+      a.property_name.localeCompare(b.property_name);
+    const mappedProperties = Object.entries(repo.properties)
+      .map(([key, value]) => ({
+        property_name: key,
+        value: value as string | null,
+      }))
+      .sort(sortProps);
+    props.data.sort(sortProps);
+    if (JSON.stringify(props.data) !== JSON.stringify(mappedProperties)) {
+      console.info(
+        chalk.green('Updating Repository Properties'),
+        chalk.cyan(repo.name),
+        'setting to',
+        chalk.cyan(JSON.stringify(repo.properties, null, 2)),
+      );
+
+      if (!IS_DRY_RUN) {
+        await octokit.orgs.createOrUpdateCustomPropertiesValuesForRepos({
+          org: config.organization,
+          repository_names: [repo.name],
+          properties: mappedProperties,
+        });
+      }
+    }
   }
 }
 
