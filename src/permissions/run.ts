@@ -118,6 +118,7 @@ const validateConfigFast = async (config: PermissionsConfig) => {
           has_wiki: Joi.boolean(),
         }).optional(),
         visibility: Joi.string().only('public', 'private').optional(),
+        properties: Joi.object().pattern(Joi.string(), Joi.string()).optional(),
       })
       .required(),
   });
@@ -1025,6 +1026,18 @@ async function checkRepository(
         });
       }
     }
+  }
+
+  if (!IS_DRY_RUN && repo.properties) {
+    const octokit = await getOctokit(config.organization);
+    await octokit.orgs.createOrUpdateCustomPropertiesValuesForRepos({
+      org: config.organization,
+      repository_names: [repo.name],
+      properties: Object.entries(repo.properties).map(([key, value]) => ({
+        property_name: key,
+        value,
+      })),
+    });
   }
 }
 
