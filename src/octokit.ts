@@ -37,7 +37,7 @@ function getAuthNarrowing(forceReadOnly: boolean): AuthNarrowing {
 
 // org <-> Octokit
 let octokitMap: Map<string, Octokit> = new Map();
-export async function getOctokit(org: string, forceReadOnly = false) {
+export async function getOctokit(org: string, forceReadOnly = false): Promise<Octokit> {
   if (!octokitMap.has(org)) {
     const creds = appCredentialsFromString(SHERIFF_GITHUB_APP_CREDS!);
     const authOpts = await getAuthOptionsForOrg(org, creds, getAuthNarrowing(forceReadOnly));
