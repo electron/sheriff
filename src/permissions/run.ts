@@ -973,22 +973,37 @@ async function checkRepository(
   if (repoVisibility !== 'current') {
     const shouldBePrivate = repoVisibility === 'private';
     if (octoRepo.private !== shouldBePrivate) {
-      builder.addContext(
-        `:ninja: Updating repository visibility for \`${octoRepo.name}\` to \`${repoVisibility}\``,
-      );
-      console.info(
-        chalk.yellow('Updating repository visibility for'),
-        chalk.cyan(octoRepo.name),
-        'to',
-        chalk.magenta(repoVisibility),
-      );
-      if (!IS_DRY_RUN) {
-        const octokit = await getOctokit(config.organization);
-        await octokit.repos.update({
-          owner: config.organization,
-          repo: octoRepo.name,
-          private: shouldBePrivate,
-        });
+      if (octoRepo.stargazers_count === undefined || octoRepo.stargazers_count >= 100) {
+        builder.addCritical(
+          `:octagonal_sign: Aborting repository visibility update for \`${octoRepo.name}\` to \`${repoVisibility}\` as repo has \`${octoRepo.stargazers_count}\` stargazers`,
+        );
+        console.error(
+          chalk.red('Aborting repository visibility update for'),
+          chalk.cyan(octoRepo.name),
+          'to',
+          chalk.magenta(repoVisibility),
+          'as repo has',
+          chalk.yellow(`${octoRepo.stargazers_count}`),
+          'stargazers',
+        );
+      } else {
+        builder.addContext(
+          `:ninja: Updating repository visibility for \`${octoRepo.name}\` to \`${repoVisibility}\``,
+        );
+        console.info(
+          chalk.yellow('Updating repository visibility for'),
+          chalk.cyan(octoRepo.name),
+          'to',
+          chalk.magenta(repoVisibility),
+        );
+        if (!IS_DRY_RUN) {
+          const octokit = await getOctokit(config.organization);
+          await octokit.repos.update({
+            owner: config.organization,
+            repo: octoRepo.name,
+            private: shouldBePrivate,
+          });
+        }
       }
     }
   }
