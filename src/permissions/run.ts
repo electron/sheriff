@@ -259,7 +259,7 @@ async function main() {
       name: missingConfigRepo.name,
       teams: {},
       external_collaborators: {},
-      visibility: 'private',
+      visibility: 'current',
     });
   }
 
@@ -313,7 +313,7 @@ async function main() {
             org: config.organization,
             name: repo.name,
             has_wiki: false,
-            visibility: repo.visibility,
+            visibility: repo.visibility === 'current' ? undefined : repo.visibility,
           })
         ).data as GetResponseDataTypeFromEndpointMethod<typeof octokit.repos.listForOrg>[0];
       } else {
@@ -969,24 +969,27 @@ async function checkRepository(
   }
 
   const repoVisibility = repo.visibility || 'public';
-  const shouldBePrivate = repoVisibility === 'private';
-  if (octoRepo.private !== shouldBePrivate) {
-    builder.addContext(
-      `:ninja: Updating repository visibility for \`${octoRepo.name}\` to \`${repoVisibility}\``,
-    );
-    console.info(
-      chalk.yellow('Updating repository visibility for'),
-      chalk.cyan(octoRepo.name),
-      'to',
-      chalk.magenta(repoVisibility),
-    );
-    if (!IS_DRY_RUN) {
-      const octokit = await getOctokit(config.organization);
-      await octokit.repos.update({
-        owner: config.organization,
-        repo: octoRepo.name,
-        private: shouldBePrivate,
-      });
+  // Failsafe to ensure renamed repos do not change their visibility status
+  if (repoVisibility !== 'current') {
+    const shouldBePrivate = repoVisibility === 'private';
+    if (octoRepo.private !== shouldBePrivate) {
+      builder.addContext(
+        `:ninja: Updating repository visibility for \`${octoRepo.name}\` to \`${repoVisibility}\``,
+      );
+      console.info(
+        chalk.yellow('Updating repository visibility for'),
+        chalk.cyan(octoRepo.name),
+        'to',
+        chalk.magenta(repoVisibility),
+      );
+      if (!IS_DRY_RUN) {
+        const octokit = await getOctokit(config.organization);
+        await octokit.repos.update({
+          owner: config.organization,
+          repo: octoRepo.name,
+          private: shouldBePrivate,
+        });
+      }
     }
   }
 

@@ -11,7 +11,7 @@ export interface RepositoryConfig {
    */
   external_collaborators?: Record<string, SheriffAccessLevel>;
   settings?: Partial<RepoSettings>;
-  visibility?: 'public' | 'private';
+  visibility?: 'public' | 'private' | 'current';
   properties?: Record<string, string>;
 }
 
