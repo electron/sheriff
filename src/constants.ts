@@ -27,4 +27,11 @@ export const SHERIFF_SLACK_DOMAIN = process.env.SHERIFF_SLACK_DOMAIN;
 export const SHERIFF_TRUSTED_RELEASERS = process.env.SHERIFF_TRUSTED_RELEASERS?.split(',').map(
   (s) => s.trim(),
 );
+// Used to allow automated releases that "follow" an upstream repo
+export const SHERIFF_TRUSTED_RELEASER_POLICIES: {
+  repository: string;
+  releaser: string;
+  mustMatchRepo: string;
+  actions: string[];
+}[] = JSON.parse(process.env.SHERIFF_TRUSTED_RELEASER_POLICIES || '[]');
 export const SHERIFF_SELF_LOGIN = process.env.SHERIFF_SELF_LOGIN || null;
