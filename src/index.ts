@@ -467,7 +467,7 @@ webhooks.on(
 webhooks.on(
   'personal_access_token_request.approved',
   hook(async (event) => {
-    const requestUrl = `https://github.com/organizations/${event.payload.organization.login}/settings/personal-access-token-requests/${event.payload.personal_access_token_request.id}`;
+    const requestUrl = `https://github.com/organizations/${event.payload.organization.login}/settings/personal-access-tokens/active`;
     const text = `A new access token was just approved for the "${event.payload.organization.login}" organization`;
     await MessageBuilder.create()
       .setEventPayload(event)
