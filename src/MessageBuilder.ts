@@ -1,5 +1,5 @@
+import { components as webhookComponents } from '@octokit/openapi-webhooks-types';
 import { IncomingWebhook, IncomingWebhookSendArguments } from '@slack/webhook';
-import { RepositoryCreatedEvent } from '@octokit/webhooks-types';
 import { KnownBlock } from '@slack/types';
 import { AUTO_TUNNEL_NGROK, SHERIFF_HOST_URL, SLACK_WEBHOOK_URL } from './constants';
 import { SheriffAccessLevel } from './permissions/types';
@@ -10,8 +10,8 @@ const hook = new IncomingWebhook(SLACK_WEBHOOK_URL!);
 
 type MinimalUserInfo = {
   login: string;
-  avatar_url: string;
-  html_url: string;
+  avatar_url?: string;
+  html_url?: string;
 };
 
 export const createMessageBlock = (msg: string, emojiSupport = false): KnownBlock => ({
@@ -39,7 +39,7 @@ export enum PermissionEnforcementAction {
 
 export class MessageBuilder {
   private state: IncomingWebhookSendArguments = {};
-  private eventPayload: unknown = null;
+  private eventPayload: any = null;
 
   private constructor() {}
 
@@ -53,7 +53,7 @@ export class MessageBuilder {
   }
 
   public addRepositoryAndBlame(
-    repository: RepositoryCreatedEvent['repository'],
+    repository: webhookComponents['schemas']['repository-webhooks'],
     user: MinimalUserInfo,
   ) {
     this.divide();
@@ -64,7 +64,9 @@ export class MessageBuilder {
     return this;
   }
 
-  public addUser(user: MinimalUserInfo, userType: string, extraInfo?: string) {
+  public addUser(user: MinimalUserInfo | null, userType: string, extraInfo?: string) {
+    if (!user) return this;
+
     this.addBlock({
       type: 'section',
       text: {
@@ -80,12 +82,14 @@ export class MessageBuilder {
     return this;
   }
 
-  public addBlame(user: MinimalUserInfo) {
+  public addBlame(user: MinimalUserInfo | undefined) {
+    if (!user) return this;
+
     this.addUser(user, 'Sender', `Time: ${new Date()}`);
     return this;
   }
 
-  public addRepositoryContext(repo: RepositoryCreatedEvent['repository']) {
+  public addRepositoryContext(repo: webhookComponents['schemas']['repository-webhooks']) {
     this.addBlock(
       createMarkdownBlock(
         `*Repository: <${repo.html_url}|${repo.owner.login}/${repo.name}>*\n${
