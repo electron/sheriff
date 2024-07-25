@@ -473,6 +473,7 @@ webhooks.on(
       .setEventPayload(event)
       .setNotificationContent(text)
       .addBlock(createMessageBlock(text))
+      .addUser(event.payload.personal_access_token_request.owner, 'Token Owner')
       .addBlame(event.payload.sender)
       .addSeverity('warning')
       .addContext(`:suspicious-fry: *Org Owners* can review/revoke this token <${requestUrl}|here>`)
