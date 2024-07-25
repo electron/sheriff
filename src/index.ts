@@ -111,7 +111,7 @@ async function takeActionOnRepositoryCollaborator(
     | EmitterWebhookEvent<'member.removed'>,
 ): Promise<{ action: PermissionEnforcementAction; expectedLevel?: SheriffAccessLevel }> {
   const repo = event.payload.repository;
-  const member = event.payload.member;
+  const member = event.payload.member!;
 
   const currentConfig = await getValidatedConfig();
   const targetRepoConfig = currentConfig.repositories.find((r) => r.name === repo.name);
@@ -244,7 +244,7 @@ webhooks.on(
     const newPermissionLevel = await octokit.repos.getCollaboratorPermissionLevel({
       owner: event.payload.repository.owner.login,
       repo: event.payload.repository.name,
-      username: event.payload.member.login,
+      username: event.payload.member!.login,
     });
     const newPermission = newPermissionLevel.data.permission;
     const text = `A collaborators permission level was unexpectedly changed on a repository from \`${originalPermission}\` :arrow_right: \`${newPermission}\``;
@@ -285,7 +285,7 @@ webhooks.on(
       .addBlock(createMessageBlock(text))
       .addUser(
         {
-          login: invitedLogin,
+          login: invitedLogin!,
           html_url: `https://github.com/${invitedLogin}`,
           avatar_url: `https://github.com/${invitedLogin}.png`,
         },
@@ -392,7 +392,7 @@ webhooks.on(
 webhooks.on(
   'release',
   hook(async (event) => {
-    if (SHERIFF_TRUSTED_RELEASERS?.includes(event.payload.sender.login)) return;
+    if (SHERIFF_TRUSTED_RELEASERS?.includes(event.payload.sender?.login || '')) return;
 
     const message = MessageBuilder.create();
     let severity: 'critical' | 'warning' | 'normal' = 'normal';
@@ -416,8 +416,40 @@ webhooks.on(
     await message
       .setEventPayload(event)
       .setNotificationContent(text)
-      .addRepositoryAndBlame(event.payload.repository, event.payload.sender)
+      .addRepositoryAndBlame(event.payload.repository, event.payload.sender!)
       .addSeverity(severity)
+      .send();
+  }),
+);
+
+webhooks.on(
+  'personal_access_token_request.created',
+  hook(async (event) => {
+    const requestUrl = `https://github.com/organizations/${event.payload.organization.login}/settings/personal-access-token-requests/${event.payload.personal_access_token_request.id}`;
+    const text = `A new access token was just requested for the "${event.payload.organization.login}" organization`;
+    await MessageBuilder.create()
+      .setEventPayload(event)
+      .setNotificationContent(text)
+      .addBlock(createMessageBlock(text))
+      .addBlame(event.payload.sender)
+      .addSeverity('normal')
+      .addContext(`:eyes: *Org Owners* can review this request <${requestUrl}|here>`)
+      .send();
+  }),
+);
+
+webhooks.on(
+  'personal_access_token_request.approved',
+  hook(async (event) => {
+    const requestUrl = `https://github.com/organizations/${event.payload.organization.login}/settings/personal-access-token-requests/${event.payload.personal_access_token_request.id}`;
+    const text = `A new access token was just approved for the "${event.payload.organization.login}" organization`;
+    await MessageBuilder.create()
+      .setEventPayload(event)
+      .setNotificationContent(text)
+      .addBlock(createMessageBlock(text))
+      .addBlame(event.payload.sender)
+      .addSeverity('warning')
+      .addContext(`:suspicious-fry: *Org Owners* can review/revoke this token <${requestUrl}|here>`)
       .send();
   }),
 );

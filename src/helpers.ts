@@ -1,6 +1,6 @@
-import { RepositoryCreatedEvent } from '@octokit/webhooks-types';
+import { components as webhookComponents } from '@octokit/openapi-webhooks-types';
 
-export const isMainRepo = (repo: RepositoryCreatedEvent['repository']) => {
+export const isMainRepo = (repo: webhookComponents['schemas']['repository-webhooks']) => {
   // electron/electron or foo/foo
   return repo.name === repo.owner.login;
 };
