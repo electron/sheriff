@@ -23,6 +23,7 @@ import {
   PORT,
   SHERIFF_IMPORTANT_BRANCH,
   SHERIFF_SELF_LOGIN,
+  SHERIFF_TRUSTED_RELEASER_POLICIES,
   SHERIFF_TRUSTED_RELEASERS,
 } from './constants';
 import { getValidatedConfig } from './permissions/run';
@@ -394,8 +395,32 @@ webhooks.on(
   hook(async (event) => {
     if (SHERIFF_TRUSTED_RELEASERS?.includes(event.payload.sender.login)) return;
 
-    const message = MessageBuilder.create();
     let severity: 'critical' | 'warning' | 'normal' = 'normal';
+
+    const octokit = await getOctokit(event.payload.repository.owner.login);
+    for (const policy of SHERIFF_TRUSTED_RELEASER_POLICIES) {
+      if (
+        policy.actions.includes(event.payload.action) &&
+        policy.releaser === event.payload.sender?.login &&
+        policy.repository === event.payload.repository.name
+      ) {
+        try {
+          await octokit.repos.getReleaseByTag({
+            owner: event.payload.repository.owner.login,
+            repo: policy.mustMatchRepo,
+            tag: event.payload.release.tag_name,
+          });
+          // If we get this far it exists, so we can ignore this release
+          return;
+        } catch {
+          // If we're in here, it's actually worse, we're expecting only automated
+          // releases and we got something that didn't line up
+          severity = 'critical';
+        }
+      }
+    }
+
+    const message = MessageBuilder.create();
     const text = `The "${event.payload.release.name}" release was just ${event.payload.action}`;
     message.addBlock(createMessageBlock(text));
     switch (event.payload.action) {
