@@ -1,22 +1,23 @@
-require('dotenv-safe').config();
+import { config } from 'dotenv-safe';
+config();
 
 import express from 'express';
 import { AddressInfo } from 'net';
-import * as path from 'path';
+import path from 'path';
 
 import {
   Webhooks as WebhooksApi,
   createNodeMiddleware,
   EmitterWebhookEvent,
 } from '@octokit/webhooks';
-import { isMainRepo, hook } from './helpers';
+import { isMainRepo, hook } from './helpers.js';
 import {
   MessageBuilder,
   createMessageBlock,
   createMarkdownBlock,
   PermissionEnforcementAction,
-} from './MessageBuilder';
-import { getOctokit } from './octokit';
+} from './MessageBuilder.js';
+import { getOctokit } from './octokit.js';
 import {
   AUTO_TUNNEL_NGROK,
   GITHUB_WEBHOOK_SECRET,
@@ -25,13 +26,13 @@ import {
   SHERIFF_SELF_LOGIN,
   SHERIFF_TRUSTED_RELEASER_POLICIES,
   SHERIFF_TRUSTED_RELEASERS,
-} from './constants';
-import { getValidatedConfig } from './permissions/run';
+} from './constants.js';
+import { getValidatedConfig } from './permissions/run.js';
 import {
   gitHubPermissionsToSheriffLevel,
   sheriffLevelToGitHubLevel,
-} from './permissions/level-converters';
-import { SheriffAccessLevel } from './permissions/types';
+} from './permissions/level-converters.js';
+import { SheriffAccessLevel } from './permissions/types.js';
 
 const webhooks = new WebhooksApi({
   secret: GITHUB_WEBHOOK_SECRET,
@@ -481,7 +482,7 @@ webhooks.on(
 
 const app = express();
 
-app.use('/static', express.static(path.resolve(__dirname, '../static')));
+app.use('/static', express.static(path.resolve(import.meta.dirname, '../static')));
 
 app.use(
   createNodeMiddleware(webhooks, {

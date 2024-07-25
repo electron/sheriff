@@ -1,8 +1,8 @@
-import { Plugin } from './Plugin';
+import { Plugin } from './Plugin.js';
 
-import { gsuitePlugin } from './gsuite';
-import { slackPlugin } from './slack';
-import { SHERIFF_PLUGINS } from '../../constants';
+import { gsuitePlugin } from './gsuite/index.js';
+import { slackPlugin } from './slack/index.js';
+import { SHERIFF_PLUGINS } from '../../constants.js';
 
 const enabledPlugins = SHERIFF_PLUGINS.split(',');
 

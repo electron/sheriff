@@ -1,3 +1,4 @@
+import { config } from 'dotenv-safe';
 import { graphql } from '@octokit/graphql';
 import { Octokit } from '@octokit/rest';
 import {
@@ -6,10 +7,10 @@ import {
   getAuthOptionsForOrg,
   getTokenForOrg,
 } from '@electron/github-app-auth';
-import { SHERIFF_GITHUB_APP_CREDS } from './constants';
-import { IS_DRY_RUN } from './helpers';
+import { SHERIFF_GITHUB_APP_CREDS } from './constants.js';
+import { IS_DRY_RUN } from './helpers.js';
 
-require('dotenv-safe').config();
+config();
 
 function getAuthNarrowing(forceReadOnly: boolean): AuthNarrowing {
   // In a dry run, ensure we only have read access to resources to avoid

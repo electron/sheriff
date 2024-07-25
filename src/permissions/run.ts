@@ -1,29 +1,32 @@
 import chalk from 'chalk';
-import * as crypto from 'crypto';
-import * as fs from 'fs-extra';
-import * as Joi from 'joi';
-import * as yml from 'js-yaml';
-import queue from 'queue';
+import crypto from 'crypto';
+import fs from 'fs-extra';
+import Joi from 'joi';
+import yml from 'js-yaml';
+import _queue from 'queue';
 
-import { graphyOctokit, getOctokit } from '../octokit';
-import { memoize, IS_DRY_RUN } from '../helpers';
+import { graphyOctokit, getOctokit } from '../octokit.js';
+import { memoize, IS_DRY_RUN } from '../helpers.js';
 import { GetResponseDataTypeFromEndpointMethod } from '@octokit/types';
-import { MessageBuilder } from '../MessageBuilder';
-import { plugins } from './plugins';
+import { MessageBuilder } from '../MessageBuilder.js';
+import { plugins } from './plugins/index.js';
 import {
   PERMISSIONS_FILE_ORG,
   PERMISSIONS_FILE_PATH,
   PERMISSIONS_FILE_REPO,
   PERMISSIONS_FILE_REF,
-} from '../constants';
+} from '../constants.js';
 import {
   PermissionsConfig,
   RepoSettings,
   RepositoryConfig,
   SheriffAccessLevel,
   TeamConfig,
-} from './types';
-import { gitHubPermissionsToSheriffLevel, sheriffLevelToGitHubLevel } from './level-converters';
+} from './types.js';
+import { gitHubPermissionsToSheriffLevel, sheriffLevelToGitHubLevel } from './level-converters.js';
+import { fileURLToPath } from 'url';
+
+const queue = _queue as unknown as typeof _queue.default;
 
 const GLITCHED_REPO_HASHES = [
   'd9a1eb0cd63e7509c90828354e18d54a8d616c80ecdc6ded8972a4f788540859',
@@ -1081,7 +1084,7 @@ async function checkRepository(
   }
 }
 
-if (require.main === module) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main().catch((err) => {
     console.error(err);
     process.exit(1);

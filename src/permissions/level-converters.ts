@@ -1,4 +1,4 @@
-import { GitHubAccessLevel, SheriffAccessLevel } from './types';
+import { GitHubAccessLevel, SheriffAccessLevel } from './types.js';
 
 export const sheriffLevelToGitHubLevel = (acessLevel: SheriffAccessLevel): GitHubAccessLevel => {
   switch (acessLevel) {

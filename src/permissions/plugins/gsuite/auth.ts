@@ -1,6 +1,7 @@
-import * as readline from 'readline';
+import readline from 'readline';
 import { google } from 'googleapis';
-import { GSUITE_CREDENTIALS, GSUITE_TOKEN } from '../../../constants';
+import { GSUITE_CREDENTIALS, GSUITE_TOKEN } from '../../../constants.js';
+import { fileURLToPath } from 'url';
 
 const SCOPES = [
   'https://www.googleapis.com/auth/admin.directory.user',
@@ -25,7 +26,7 @@ export function getAuthorizedClient() {
   return oauth2Client;
 }
 
-if (require.main === module) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const { client_secret, client_id, redirect_uris } = credentials.installed;
   const oauth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
 

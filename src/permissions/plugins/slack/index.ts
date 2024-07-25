@@ -1,11 +1,11 @@
-import { Plugin } from '../Plugin';
-import { MessageBuilder } from '../../../MessageBuilder';
-import { memoize, IS_DRY_RUN } from '../../../helpers';
+import { Plugin } from '../Plugin.js';
+import { MessageBuilder } from '../../../MessageBuilder.js';
+import { memoize, IS_DRY_RUN } from '../../../helpers.js';
 import chalk from 'chalk';
 
 import { WebClient } from '@slack/web-api';
-import { SHERIFF_GSUITE_DOMAIN, SLACK_TOKEN } from '../../../constants';
-import { TeamConfig } from '../../types';
+import { SHERIFF_GSUITE_DOMAIN, SLACK_TOKEN } from '../../../constants.js';
+import { TeamConfig } from '../../types.js';
 
 interface UserGroup {
   id: string;

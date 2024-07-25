@@ -1,11 +1,11 @@
 import chalk from 'chalk';
 import ora from 'ora';
-import * as yml from 'js-yaml';
+import yml from 'js-yaml';
 
-import { PERMISSIONS_FILE_ORG } from '../constants';
-import { getOctokit } from '../octokit';
-import { gitHubPermissionsToSheriffLevel } from './level-converters';
-import { PermissionsConfig, RepositoryConfig, TeamConfig } from './types';
+import { PERMISSIONS_FILE_ORG } from '../constants.js';
+import { getOctokit } from '../octokit.js';
+import { gitHubPermissionsToSheriffLevel } from './level-converters.js';
+import { PermissionsConfig, RepositoryConfig, TeamConfig } from './types.js';
 
 const targetOrg = PERMISSIONS_FILE_ORG;
 
