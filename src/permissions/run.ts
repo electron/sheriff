@@ -17,6 +17,7 @@ import {
   PERMISSIONS_FILE_REF,
 } from '../constants.js';
 import {
+  OrganizationConfig,
   PermissionsConfig,
   RepoSettings,
   RepositoryConfig,
@@ -58,304 +59,326 @@ const loadCurrentConfig = async () => {
   ) as PermissionsConfig;
 };
 
-const validateConfigFast = async (config: PermissionsConfig) => {
-  // Support formation prop
-  config.teams = config.teams.map((team) => {
-    const anyTeam = team as any;
-    if (anyTeam.formation) {
-      const formationTeams = config.teams.filter((t) => anyTeam.formation.includes(t.name));
-      const maintainers = new Set(
-        formationTeams.reduce<string[]>((all, team) => [...all, ...team.maintainers], []),
-      );
-      const members = new Set(
-        formationTeams.reduce<string[]>((all, team) => [...all, ...team.members], []),
-      );
-      for (const maintainer of maintainers) {
-        members.delete(maintainer);
+const validateConfigFast = async (config: PermissionsConfig): Promise<OrganizationConfig[]> => {
+  const orgConfigs = Array.isArray(config) ? config : [config];
+  for (const orgConfig of orgConfigs) {
+    if (!orgConfig || typeof orgConfig !== 'object' || !orgConfig.teams) continue;
+
+    // Support formation prop
+    orgConfig.teams = orgConfig.teams.map((team) => {
+      const anyTeam = team as any;
+      if (anyTeam.formation) {
+        const formationTeams = orgConfig.teams.filter((t) => anyTeam.formation.includes(t.name));
+        const maintainers = new Set(
+          formationTeams.reduce<string[]>((all, team) => [...all, ...team.maintainers], []),
+        );
+        const members = new Set(
+          formationTeams.reduce<string[]>((all, team) => [...all, ...team.members], []),
+        );
+        for (const maintainer of maintainers) {
+          members.delete(maintainer);
+        }
+        return {
+          name: team.name,
+          displayName: team.displayName,
+          gsuite: team.gsuite,
+          slack: team.slack,
+          maintainers: [...maintainers],
+          members: [...members],
+        };
       }
-      return {
-        name: team.name,
-        displayName: team.displayName,
-        gsuite: team.gsuite,
-        slack: team.slack,
-        maintainers: [...maintainers],
-        members: [...members],
-      };
-    }
-    return team;
-  });
+      return team;
+    });
+  }
 
   // Ensure the object looks right
-  await Joi.validate(config, {
-    organization: Joi.string().min(1).required(),
-    repository_defaults: Joi.object({
-      has_wiki: Joi.boolean().required(),
-    }).required(),
-    teams: Joi.array()
-      .items({
-        name: Joi.string().min(1).required(),
-        displayName: Joi.string().min(1).optional(),
-        parent: Joi.string().min(1).optional(),
-        secret: Joi.bool().optional(),
-        members: Joi.array().items(Joi.string().min(1)).min(0).required(),
-        maintainers: Joi.array().items(Joi.string().min(1)).min(1).required(),
-        gsuite: Joi.object({
-          privacy: Joi.string().only('internal', 'external').required(),
-        }).optional(),
-        slack: Joi.string().min(1).allow(true).allow(false).optional(),
-      })
+  await Joi.validate(
+    orgConfigs,
+    Joi.array()
+      .items(
+        Joi.object({
+          organization: Joi.string().min(1).required(),
+          repository_defaults: Joi.object({
+            has_wiki: Joi.boolean().required(),
+          }).required(),
+          teams: Joi.array()
+            .items({
+              name: Joi.string().min(1).required(),
+              displayName: Joi.string().min(1).optional(),
+              parent: Joi.string().min(1).optional(),
+              secret: Joi.bool().optional(),
+              members: Joi.array().items(Joi.string().min(1)).min(0).required(),
+              maintainers: Joi.array().items(Joi.string().min(1)).min(1).required(),
+              gsuite: Joi.object({
+                privacy: Joi.string().only('internal', 'external').required(),
+              }).optional(),
+              slack: Joi.string().min(1).allow(true).allow(false).optional(),
+            })
+            .required(),
+          repositories: Joi.array()
+            .items({
+              name: Joi.string().min(1).required(),
+              teams: Joi.object()
+                .pattern(
+                  Joi.string(),
+                  Joi.string().only('read', 'triage', 'write', 'maintain', 'admin'),
+                )
+                .optional(),
+              external_collaborators: Joi.object()
+                .pattern(
+                  Joi.string().min(1),
+                  Joi.string().only('read', 'triage', 'write', 'maintain', 'admin'),
+                )
+                .optional(),
+              settings: Joi.object({
+                has_wiki: Joi.boolean(),
+              }).optional(),
+              visibility: Joi.string().only('public', 'private').optional(),
+              properties: Joi.object().pattern(Joi.string(), Joi.string()).optional(),
+            })
+            .required(),
+        }),
+      )
+      .min(1)
       .required(),
-    repositories: Joi.array()
-      .items({
-        name: Joi.string().min(1).required(),
-        teams: Joi.object()
-          .pattern(Joi.string(), Joi.string().only('read', 'triage', 'write', 'maintain', 'admin'))
-          .optional(),
-        external_collaborators: Joi.object()
-          .pattern(
-            Joi.string().min(1),
-            Joi.string().only('read', 'triage', 'write', 'maintain', 'admin'),
-          )
-          .optional(),
-        settings: Joi.object({
-          has_wiki: Joi.boolean(),
-        }).optional(),
-        visibility: Joi.string().only('public', 'private').optional(),
-        properties: Joi.object().pattern(Joi.string(), Joi.string()).optional(),
-      })
-      .required(),
-  });
+  );
 
-  for (const team of config.teams) {
-    if (
-      new Set([...team.members, ...team.maintainers]).size !==
-      team.members.length + team.maintainers.length
-    ) {
-      throw new Error(
-        `Team "${team.name}" in the teams config appears to have a crossover between members and maintainers.  Users should appear in at most one section`,
-      );
-    }
-    const parentTeam = team.parent && config.teams.find((t) => t.name === team.parent);
-    if (team.parent && !parentTeam) {
-      throw new Error(
-        `Team "${team.name}" has a parent team of "${team.parent}" but that team does not appear to exist`,
-      );
-    }
-    if (team.parent && team.secret) {
-      throw new Error(
-        `Team "${team.name}" is marked as secret but it has a parent team, this is not allowed by GitHub`,
-      );
-    }
-    if (team.gsuite && !team.displayName) {
-      throw new Error(
-        `Team "${team.name}" has a gsuite config but no displayName, this is required`,
-      );
-    }
-    if (parentTeam) {
-      let parentRef: TeamConfig | undefined = parentTeam;
-      const visited = [team.name];
-      while (parentRef) {
-        if (visited.includes(parentRef.name)) {
-          throw new Error(
-            `Team "${
-              team.name
-            }" has a circular parent reference that eventually loops back to itself.  Path: ${[
-              ...visited,
-              parentRef.name,
-            ]
-              .map((n) => `"${n}"`)
-              .join(' --> ')}`,
-          );
+  for (const orgConfig of orgConfigs) {
+    for (const team of orgConfig.teams) {
+      if (
+        new Set([...team.members, ...team.maintainers]).size !==
+        team.members.length + team.maintainers.length
+      ) {
+        throw new Error(
+          `Team "${team.name}" in the teams config for "${orgConfig.organization}" appears to have a crossover between members and maintainers.  Users should appear in at most one section`,
+        );
+      }
+      const parentTeam = team.parent && orgConfig.teams.find((t) => t.name === team.parent);
+      if (team.parent && !parentTeam) {
+        throw new Error(
+          `Team "${team.name}" for "${orgConfig.organization}" has a parent team of "${team.parent}" but that team does not appear to exist`,
+        );
+      }
+      if (team.parent && team.secret) {
+        throw new Error(
+          `Team "${team.name}" for "${orgConfig.organization}" is marked as secret but it has a parent team, this is not allowed by GitHub`,
+        );
+      }
+      if (team.gsuite && !team.displayName) {
+        throw new Error(
+          `Team "${team.name}" for "${orgConfig.organization}" has a gsuite config but no displayName, this is required`,
+        );
+      }
+      if (parentTeam) {
+        let parentRef: TeamConfig | undefined = parentTeam;
+        const visited = [team.name];
+        while (parentRef) {
+          if (visited.includes(parentRef.name)) {
+            throw new Error(
+              `Team "${team.name}" for "${
+                orgConfig.organization
+              }" has a circular parent reference that eventually loops back to itself.  Path: ${[
+                ...visited,
+                parentRef.name,
+              ]
+                .map((n) => `"${n}"`)
+                .join(' --> ')}`,
+            );
+          }
+          visited.push(parentRef.name);
+          if (parentRef.secret) {
+            throw new Error(
+              `Team "${team.name}" for "${orgConfig.organization}" has a parent team "${parentRef.name}" that is marked as secret, this is not allowed by GitHub`,
+            );
+          }
+          parentRef =
+            (parentRef.parent && orgConfig.teams.find((t) => t.name === parentRef!.parent)) ||
+            undefined;
         }
-        visited.push(parentRef.name);
-        if (parentRef.secret) {
+      }
+    }
+
+    const seenTeams = new Set<string>();
+    for (const team of orgConfig.teams) {
+      if (seenTeams.has(team.name)) {
+        throw new Error(
+          `Team "${team.name}" appears multiple times in the config for "${orgConfig.organization}", it should only appear once`,
+        );
+      }
+      seenTeams.add(team.name);
+    }
+
+    const seenRepos = new Set<string>();
+    for (const repo of orgConfig.repositories) {
+      if (seenRepos.has(repo.name)) {
+        throw new Error(
+          `Repository "${repo.name}" appears multiple times in the config for "${orgConfig.organization}", it should only appear once`,
+        );
+      }
+      seenRepos.add(repo.name);
+    }
+
+    for (const repo of orgConfig.repositories) {
+      for (const team in repo.teams) {
+        if (!orgConfig.teams.find((t) => t.name === team))
           throw new Error(
-            `Team "${team.name}" has a parent team "${parentRef.name}" that is marked as secret, this is not allowed by GitHub`,
+            `Team "${team}" assigned to "${repo.name}" does not exist in the "teams" config for "${orgConfig.organization}"`,
           );
-        }
-        parentRef =
-          (parentRef.parent && config.teams.find((t) => t.name === parentRef!.parent)) || undefined;
       }
     }
   }
 
-  const seenTeams = new Set<string>();
-  for (const team of config.teams) {
-    if (seenTeams.has(team.name)) {
-      throw new Error(
-        `Team "${team.name}" appears multiple times in the config, it should only appear once`,
-      );
-    }
-    seenTeams.add(team.name);
-  }
-
-  const seenRepos = new Set<string>();
-  for (const repo of config.repositories) {
-    if (seenRepos.has(repo.name)) {
-      throw new Error(
-        `Repository "${repo.name}" appears multiple times in the config, it should only appear once`,
-      );
-    }
-    seenRepos.add(repo.name);
-  }
-
-  for (const repo of config.repositories) {
-    for (const team in repo.teams) {
-      if (!config.teams.find((t) => t.name === team))
-        throw new Error(
-          `Team "${team}" assigned to "${repo.name}" does not exist in the "teams" config`,
-        );
-    }
-  }
+  return orgConfigs;
 };
 
 export const getValidatedConfig = async () => {
   const config = await loadCurrentConfig();
-  await validateConfigFast(config);
-  return config;
+  return await validateConfigFast(config);
 };
 
 async function main() {
   const builder = MessageBuilder.create();
-  const config = await loadCurrentConfig();
-  await validateConfigFast(config);
+  const rawConfig = await loadCurrentConfig();
+  const orgConfigs = await validateConfigFast(rawConfig);
 
-  const allRepos = await listAllOrgRepos(config);
-  const allTeams = await listAllTeams(config);
+  for (const config of orgConfigs) {
+    const allRepos = await listAllOrgRepos(config);
+    const allTeams = await listAllTeams(config);
 
-  const octokit = await getOctokit(config.organization);
+    const octokit = await getOctokit(config.organization);
 
-  const allUsers = await listAllOrgMembersAndOwners(config);
-  const badUsers: string[] = [];
-  for (const team of config.teams) {
-    for (const person of [...team.members, ...team.maintainers]) {
-      if (!allUsers.find((u) => u.login === person)) {
-        badUsers.push(person);
+    const allUsers = await listAllOrgMembersAndOwners(config);
+    const badUsers: string[] = [];
+    for (const team of config.teams) {
+      for (const person of [...team.members, ...team.maintainers]) {
+        if (!allUsers.find((u) => u.login === person)) {
+          badUsers.push(person);
+        }
       }
     }
-  }
 
-  if (badUsers.length) {
-    for (const badUser of badUsers) {
-      builder.addCritical(`User in team configuration is not in the target org: ${badUser}`);
-      console.error(
-        chalk.red('ERROR'),
-        'User in team configuration is not in the target org::',
-        chalk.cyan(badUser),
-      );
+    if (badUsers.length) {
+      for (const badUser of badUsers) {
+        builder.addCritical(`User in team configuration is not in the target org: ${badUser}`);
+        console.error(
+          chalk.red('ERROR'),
+          'User in team configuration is not in the target org::',
+          chalk.cyan(badUser),
+        );
+      }
+      return await builder.send();
     }
-    return await builder.send();
-  }
 
-  const missingConfigRepos = allRepos.filter(
-    (r) => !config.repositories.find((repo) => repo.name === r.name),
-  );
-  for (const missingConfigRepo of missingConfigRepos) {
-    builder.addWarning(`Missing explicit config for repo \`${missingConfigRepo.name}\``);
-    console.info(
-      chalk.yellow('WARNING:'),
-      'Missing explicit config for repo',
-      chalk.cyan(missingConfigRepo.name),
-      'default to no granted permissions',
+    const missingConfigRepos = allRepos.filter(
+      (r) => !config.repositories.find((repo) => repo.name === r.name),
     );
-    config.repositories.push({
-      name: missingConfigRepo.name,
-      teams: {},
-      external_collaborators: {},
-      visibility: 'current',
-    });
-  }
-
-  if (missingConfigRepos.length) builder.divide();
-
-  const reposNotInTargetOrg = config.repositories.filter(
-    (r) => !allRepos.find((repo) => r.name === repo.name),
-  );
-  for (const repoNotInTargetOrg of reposNotInTargetOrg) {
-    builder.addWarning(
-      `Repository in config is not in the target org: ${repoNotInTargetOrg.name} it will be created`,
-    );
-    console.error(
-      chalk.yellow('WARNING:'),
-      'Repository in config is not in the target org:',
-      chalk.cyan(repoNotInTargetOrg.name),
-    );
-  }
-
-  const missingConfigTeams = allTeams.filter(
-    (t) => !config.teams.find((team) => team.name === t.name),
-  );
-  for (const missingConfigTeam of missingConfigTeams) {
-    builder.addCritical(`Deleting Team: \`${missingConfigTeam.name}\``);
-    console.info(chalk.red('Deleting Team'), chalk.cyan(missingConfigTeam.name));
-    if (!IS_DRY_RUN) {
-      await octokit.teams.deleteInOrg({
-        team_slug: missingConfigTeam.slug,
-        org: config.organization,
+    for (const missingConfigRepo of missingConfigRepos) {
+      builder.addWarning(`Missing explicit config for repo \`${missingConfigRepo.name}\``);
+      console.info(
+        chalk.yellow('WARNING:'),
+        'Missing explicit config for repo',
+        chalk.cyan(missingConfigRepo.name),
+        'default to no granted permissions',
+      );
+      config.repositories.push({
+        name: missingConfigRepo.name,
+        teams: {},
+        external_collaborators: {},
+        visibility: 'current',
       });
     }
-  }
 
-  if (missingConfigTeams.length) builder.divide();
+    if (missingConfigRepos.length) builder.divide();
 
-  for (const team of config.teams) {
-    for (const plugin of plugins) {
-      await plugin.handleTeam(team, builder);
+    const reposNotInTargetOrg = config.repositories.filter(
+      (r) => !allRepos.find((repo) => r.name === repo.name),
+    );
+    for (const repoNotInTargetOrg of reposNotInTargetOrg) {
+      builder.addWarning(
+        `Repository in config is not in the target org: ${repoNotInTargetOrg.name} it will be created`,
+      );
+      console.error(
+        chalk.yellow('WARNING:'),
+        'Repository in config is not in the target org:',
+        chalk.cyan(repoNotInTargetOrg.name),
+      );
     }
-    await checkTeam(builder, config, team);
-  }
 
-  const reposToCheck: RepositoryConfig[] = [];
-
-  for (const repo of config.repositories) {
-    let octoRepo = allRepos.find((r) => repo.name === r.name);
-    if (!octoRepo) {
+    const missingConfigTeams = allTeams.filter(
+      (t) => !config.teams.find((team) => team.name === t.name),
+    );
+    for (const missingConfigTeam of missingConfigTeams) {
+      builder.addCritical(`Deleting Team: \`${missingConfigTeam.name}\``);
+      console.info(chalk.red('Deleting Team'), chalk.cyan(missingConfigTeam.name));
       if (!IS_DRY_RUN) {
-        octoRepo = (
-          await octokit.repos.createInOrg({
-            org: config.organization,
-            name: repo.name,
-            has_wiki: false,
-            visibility: repo.visibility === 'current' ? undefined : repo.visibility,
-          })
-        ).data as GetResponseDataTypeFromEndpointMethod<typeof octokit.repos.listForOrg>[0];
-      } else {
-        break;
+        await octokit.teams.deleteInOrg({
+          team_slug: missingConfigTeam.slug,
+          org: config.organization,
+        });
       }
-      listAllOrgRepos.invalidate();
     }
-    // If it is archived we can not update permissions but it should still
-    // be in our config in case it becomes un-archived
-    if (!octoRepo.archived) {
-      reposToCheck.push(repo);
+
+    if (missingConfigTeams.length) builder.divide();
+
+    for (const team of config.teams) {
+      for (const plugin of plugins) {
+        await plugin.handleTeam(team, builder);
+      }
+      await checkTeam(builder, config, team);
     }
-  }
 
-  const q = queue({
-    concurrency: 8,
-    autostart: false,
-  });
+    const reposToCheck: RepositoryConfig[] = [];
 
-  for (const repo of reposToCheck) {
-    q.push(() => preloadRepositoryMetadata(config, repo));
-  }
+    for (const repo of config.repositories) {
+      let octoRepo = allRepos.find((r) => repo.name === r.name);
+      if (!octoRepo) {
+        if (!IS_DRY_RUN) {
+          octoRepo = (
+            await octokit.repos.createInOrg({
+              org: config.organization,
+              name: repo.name,
+              has_wiki: false,
+              visibility: repo.visibility === 'current' ? undefined : repo.visibility,
+            })
+          ).data as GetResponseDataTypeFromEndpointMethod<typeof octokit.repos.listForOrg>[0];
+        } else {
+          break;
+        }
+        listAllOrgRepos.invalidate();
+      }
+      // If it is archived we can not update permissions but it should still
+      // be in our config in case it becomes un-archived
+      if (!octoRepo.archived) {
+        reposToCheck.push(repo);
+      }
+    }
 
-  await new Promise<void>((resolve, reject) => {
-    q.start((err) => {
-      if (err) return reject(err);
-
-      resolve();
+    const q = queue({
+      concurrency: 8,
+      autostart: false,
     });
-  });
 
-  for (const repo of reposToCheck) {
-    await checkRepository(builder, config, repo);
+    for (const repo of reposToCheck) {
+      q.push(() => preloadRepositoryMetadata(config, repo));
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      q.start((err) => {
+        if (err) return reject(err);
+
+        resolve();
+      });
+    });
+
+    for (const repo of reposToCheck) {
+      await checkRepository(builder, config, repo);
+    }
+
+    if (!IS_DRY_RUN) await builder.send();
   }
-
-  if (!IS_DRY_RUN) await builder.send();
 }
 
-const listAllOrgOwners = memoize(async (config: PermissionsConfig) => {
+const listAllOrgOwners = memoize(async (config: OrganizationConfig) => {
   const octokit = await getOctokit(config.organization);
   return octokit.paginate(octokit.orgs.listMembers, {
     org: config.organization,
@@ -363,14 +386,14 @@ const listAllOrgOwners = memoize(async (config: PermissionsConfig) => {
   });
 });
 
-const listAllOrgMembersAndOwners = memoize(async (config: PermissionsConfig) => {
+const listAllOrgMembersAndOwners = memoize(async (config: OrganizationConfig) => {
   const octokit = await getOctokit(config.organization);
   return octokit.paginate(octokit.orgs.listMembers, {
     org: config.organization,
   });
 });
 
-const listAllTeams = memoize(async (config: PermissionsConfig) => {
+const listAllTeams = memoize(async (config: OrganizationConfig) => {
   const octokit = await getOctokit(config.organization);
   return octokit.paginate(octokit.teams.list, {
     org: config.organization,
@@ -380,7 +403,7 @@ const listAllTeams = memoize(async (config: PermissionsConfig) => {
   });
 });
 
-const listAllOrgRepos = memoize(async (config: PermissionsConfig) => {
+const listAllOrgRepos = memoize(async (config: OrganizationConfig) => {
   const octokit = await getOctokit(config.organization);
   const repos = await octokit.paginate(octokit.repos.listForOrg, {
     org: config.organization,
@@ -397,7 +420,7 @@ const listAllOrgRepos = memoize(async (config: PermissionsConfig) => {
   });
 });
 
-const computeRepoSettings = (config: PermissionsConfig, repo: RepositoryConfig): RepoSettings => {
+const computeRepoSettings = (config: OrganizationConfig, repo: RepositoryConfig): RepoSettings => {
   const keyOrDefault = (key: keyof RepoSettings) => {
     if (!repo.settings) return config.repository_defaults[key];
     if (typeof repo.settings[key] === 'undefined') return config.repository_defaults[key];
@@ -411,7 +434,7 @@ const computeRepoSettings = (config: PermissionsConfig, repo: RepositoryConfig):
 
 async function findTeamByName(
   builder: MessageBuilder,
-  config: PermissionsConfig,
+  config: OrganizationConfig,
   teamName: string,
 ): Promise<GetResponseDataTypeFromEndpointMethod<typeof octokit.teams.list>[0]> {
   const octokit = await getOctokit(config.organization);
@@ -445,7 +468,7 @@ async function findTeamByName(
   return matchingTeams[0];
 }
 
-async function checkTeam(builder: MessageBuilder, config: PermissionsConfig, team: TeamConfig) {
+async function checkTeam(builder: MessageBuilder, config: OrganizationConfig, team: TeamConfig) {
   const octoTeam = await findTeamByName(builder, config, team.name);
   const orgOwners = await listAllOrgOwners(config);
   const octokit = await getOctokit(config.organization);
@@ -717,7 +740,7 @@ const metadata = new Map<
   RepositoryConfig,
   ResolveType<ReturnType<typeof loadRepositoryMetadata>>
 >();
-async function loadRepositoryMetadata(config: PermissionsConfig, repo: RepositoryConfig) {
+async function loadRepositoryMetadata(config: OrganizationConfig, repo: RepositoryConfig) {
   const octokit = await getOctokit(config.organization);
   const [currentTeams, currentInvites, currentCollaborators] = await Promise.all([
     octokit.paginate(octokit.repos.listTeams, {
@@ -738,7 +761,7 @@ async function loadRepositoryMetadata(config: PermissionsConfig, repo: Repositor
   return { currentTeams, currentInvites, currentCollaborators };
 }
 
-async function preloadRepositoryMetadata(config: PermissionsConfig, repo: RepositoryConfig) {
+async function preloadRepositoryMetadata(config: OrganizationConfig, repo: RepositoryConfig) {
   if (metadata.has(repo)) return;
 
   metadata.set(repo, await loadRepositoryMetadata(config, repo));
@@ -746,7 +769,7 @@ async function preloadRepositoryMetadata(config: PermissionsConfig, repo: Reposi
 
 async function checkRepository(
   builder: MessageBuilder,
-  config: PermissionsConfig,
+  config: OrganizationConfig,
   repo: RepositoryConfig,
 ) {
   const { currentTeams, currentInvites, currentCollaborators } = metadata.get(repo)!;
