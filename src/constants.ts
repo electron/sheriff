@@ -1,5 +1,8 @@
 export const SHERIFF_GITHUB_APP_CREDS = process.env.SHERIFF_GITHUB_APP_CREDS;
 export const GITHUB_WEBHOOK_SECRET = process.env.GITHUB_WEBHOOK_SECRET || 'development';
+export const SHERIFF_GIST_TOKEN = process.env.SHERIFF_GIST_TOKEN || '';
+
+export const PERMISSIONS_FILE_LOCAL_PATH = process.env.PERMISSIONS_FILE_LOCAL_PATH || '';
 
 export const PERMISSIONS_FILE_ORG = process.env.PERMISSIONS_FILE_ORG!;
 export const PERMISSIONS_FILE_REPO = process.env.PERMISSIONS_FILE_REPO || '.permissions';
