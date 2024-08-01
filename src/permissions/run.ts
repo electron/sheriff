@@ -272,6 +272,8 @@ async function main() {
   const orgConfigs = await validateConfigFast(rawConfig);
 
   for (const config of orgConfigs) {
+    const builderLengthAtStart = builder.length();
+
     console.info(
       chalk.bold(`Processing organization "${chalk.cyan(config.organization)}" configuration:`),
     );
@@ -455,7 +457,8 @@ async function main() {
       await checkRepository(builder, config, repo);
     }
 
-    if (builder.length() > 0) {
+    if (builder.length() > builderLengthAtStart) {
+      console.info(' ');
       const org = await octokit.orgs.get({
         org: config.organization,
       });
