@@ -28,16 +28,18 @@ export const hook = <T extends { id: string; name: string }>(
 
 export const memoize = <A extends any[], T>(
   fn: (...args: A) => Promise<T>,
+  memoizeKey?: (...args: A) => string,
 ): ((...args: A) => Promise<T>) & { invalidate: () => void } => {
-  let val: T | null = null;
+  let val: Record<string, T> = Object.create(null);
   const f = async (...args: A) => {
-    if (!val) {
-      val = await fn(...args);
+    const key = memoizeKey ? memoizeKey(...args) : '__default__';
+    if (!val[key]) {
+      val[key] = await fn(...args);
     }
-    return val;
+    return val[key];
   };
   (f as any).invalidate = () => {
-    val = null;
+    val = Object.create(null);
   };
   return f as any as ((...args: A) => Promise<T>) & { invalidate: () => void };
 };

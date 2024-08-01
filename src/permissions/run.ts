@@ -40,6 +40,8 @@ console.warn('Dry Run?:', chalk[IS_DRY_RUN ? 'green' : 'red'](`${IS_DRY_RUN}`));
 const loadCurrentConfig = async () => {
   if (fs.existsSync('config.yml'))
     return yml.safeLoad(fs.readFileSync('config.yml', 'utf8')) as PermissionsConfig;
+  if (fs.existsSync('config.yaml'))
+    return yml.safeLoad(fs.readFileSync('config.yaml', 'utf8')) as PermissionsConfig;
   if (!PERMISSIONS_FILE_ORG) {
     throw new Error('Missing PERMISSIONS_FILE_ORG env var');
   }
@@ -108,9 +110,9 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
 
         return {
           name: team.name,
-          displayName: team.displayName,
-          gsuite: team.gsuite,
-          slack: team.slack,
+          displayName: referencedTeam.displayName,
+          gsuite: referencedTeam.gsuite,
+          slack: referencedTeam.slack,
           maintainers: [...referencedTeam.maintainers],
           members: [...referencedTeam.members],
         };
@@ -270,31 +272,80 @@ async function main() {
   const orgConfigs = await validateConfigFast(rawConfig);
 
   for (const config of orgConfigs) {
+    console.info(
+      chalk.bold(`Processing organization "${chalk.cyan(config.organization)}" configuration:`),
+    );
     const allRepos = await listAllOrgRepos(config);
     const allTeams = await listAllTeams(config);
 
     const octokit = await getOctokit(config.organization);
 
     const allUsers = await listAllOrgMembersAndOwners(config);
-    const badUsers: string[] = [];
+    const usersNeedingInvite: string[] = [];
     for (const team of config.teams) {
       for (const person of [...team.members, ...team.maintainers]) {
         if (!allUsers.find((u) => u.login === person)) {
-          badUsers.push(person);
+          usersNeedingInvite.push(person);
         }
       }
     }
 
-    if (badUsers.length) {
-      for (const badUser of badUsers) {
-        builder.addCritical(`User in team configuration is not in the target org: ${badUser}`);
-        console.error(
-          chalk.red('ERROR'),
-          'User in team configuration is not in the target org::',
-          chalk.cyan(badUser),
-        );
+    if (usersNeedingInvite.length) {
+      const pendingInvites = await octokit.orgs.listPendingInvitations({
+        org: config.organization,
+      });
+      for (const userNeedingInvite of usersNeedingInvite) {
+        if (!pendingInvites.data.find((invite) => invite.login === userNeedingInvite)) {
+          let userId: number;
+          try {
+            const githubUserInfo = await octokit.users.getByUsername({
+              username: userNeedingInvite,
+            });
+            // Ensure case is correct in config file
+            if (githubUserInfo.data.login !== userNeedingInvite) {
+              builder.addCritical(
+                `User "${userNeedingInvite}" not in "${config.organization}" organization and does not match name found on GitHub "${githubUserInfo.data.login}"`,
+              );
+              console.error(
+                chalk.red('ERROR'),
+                `User "${chalk.cyan(userNeedingInvite)}" not in "${
+                  config.organization
+                }" organization  and does not match name found on GitHub`,
+                chalk.yellow(githubUserInfo.data.login),
+              );
+              return await builder.send();
+            }
+
+            userId = githubUserInfo.data.id;
+          } catch {
+            builder.addCritical(
+              `User "${userNeedingInvite}" not in "${config.organization}" organization and could not be found on GitHub`,
+            );
+            console.error(
+              chalk.red('ERROR'),
+              `User not in "${config.organization}" organization and could not be found on GitHub`,
+              chalk.cyan(userNeedingInvite),
+            );
+            return await builder.send();
+          }
+
+          builder.addContext(
+            `:blob-wave: Inviting user \`${userNeedingInvite}\` to the \`${config.organization}\` org as they are listed in a team but not invited yet`,
+          );
+          console.info(
+            `${chalk.green('Inviting')} user ${chalk.cyan(
+              userNeedingInvite,
+            )} to be a member of the ${chalk.cyan(config.organization)} organization`,
+          );
+          if (!IS_DRY_RUN) {
+            await octokit.orgs.createInvitation({
+              org: config.organization,
+              invitee_id: userId,
+              role: 'direct_member',
+            });
+          }
+        }
       }
-      return await builder.send();
     }
 
     const missingConfigRepos = allRepos.filter(
@@ -352,7 +403,7 @@ async function main() {
       for (const plugin of plugins) {
         await plugin.handleTeam(team, builder);
       }
-      await checkTeam(builder, config, team);
+      await checkTeam(builder, config, team, usersNeedingInvite);
     }
 
     const reposToCheck: RepositoryConfig[] = [];
@@ -420,53 +471,67 @@ async function main() {
           },
         ],
       });
+    } else {
+      console.info(` - No changes\n`);
     }
 
     if (!IS_DRY_RUN) await builder.send();
   }
 }
 
-const listAllOrgOwners = memoize(async (config: OrganizationConfig) => {
-  const octokit = await getOctokit(config.organization);
-  return octokit.paginate(octokit.orgs.listMembers, {
-    org: config.organization,
-    role: 'admin',
-  });
-});
+const listAllOrgOwners = memoize(
+  async (config: OrganizationConfig) => {
+    const octokit = await getOctokit(config.organization);
+    return octokit.paginate(octokit.orgs.listMembers, {
+      org: config.organization,
+      role: 'admin',
+    });
+  },
+  (config) => config.organization,
+);
 
-const listAllOrgMembersAndOwners = memoize(async (config: OrganizationConfig) => {
-  const octokit = await getOctokit(config.organization);
-  return octokit.paginate(octokit.orgs.listMembers, {
-    org: config.organization,
-  });
-});
+const listAllOrgMembersAndOwners = memoize(
+  async (config: OrganizationConfig) => {
+    const octokit = await getOctokit(config.organization);
+    return octokit.paginate(octokit.orgs.listMembers, {
+      org: config.organization,
+    });
+  },
+  (config) => config.organization,
+);
 
-const listAllTeams = memoize(async (config: OrganizationConfig) => {
-  const octokit = await getOctokit(config.organization);
-  return octokit.paginate(octokit.teams.list, {
-    org: config.organization,
-    headers: {
-      Accept: 'application/vnd.github.hellcat-preview+json',
-    },
-  });
-});
+const listAllTeams = memoize(
+  async (config: OrganizationConfig) => {
+    const octokit = await getOctokit(config.organization);
+    return octokit.paginate(octokit.teams.list, {
+      org: config.organization,
+      headers: {
+        Accept: 'application/vnd.github.hellcat-preview+json',
+      },
+    });
+  },
+  (config) => config.organization,
+);
 
-const listAllOrgRepos = memoize(async (config: OrganizationConfig) => {
-  const octokit = await getOctokit(config.organization);
-  const repos = await octokit.paginate(octokit.repos.listForOrg, {
-    org: config.organization,
-  });
+const listAllOrgRepos = memoize(
+  async (config: OrganizationConfig) => {
+    const octokit = await getOctokit(config.organization);
+    const repos = await octokit.paginate(octokit.repos.listForOrg, {
+      org: config.organization,
+    });
 
-  const securityRepoPattern = /^[\w]+-ghsa-[A-Za-z0-9-]{4}-[A-Za-z0-9-]{4}-[A-Za-z0-9-]{4}$/;
-  return repos.filter((r) => {
-    const isSecurityAdvisory = securityRepoPattern.test(r.name);
-    const isGlitchedRepo = GLITCHED_REPO_HASHES.includes(
-      crypto.createHash('SHA256').update(r.name).digest('hex'),
-    );
+    const securityRepoPattern = /^[\w]+-ghsa-[A-Za-z0-9-]{4}-[A-Za-z0-9-]{4}-[A-Za-z0-9-]{4}$/;
+    return repos.filter((r) => {
+      const isSecurityAdvisory = securityRepoPattern.test(r.name);
+      const isGlitchedRepo = GLITCHED_REPO_HASHES.includes(
+        crypto.createHash('SHA256').update(r.name).digest('hex'),
+      );
 
-    return !(isGlitchedRepo || isSecurityAdvisory);
-  });
-});
+      return !(isGlitchedRepo || isSecurityAdvisory);
+    });
+  },
+  (config) => config.organization,
+);
 
 const computeRepoSettings = (config: OrganizationConfig, repo: RepositoryConfig): RepoSettings => {
   const keyOrDefault = (key: keyof RepoSettings) => {
@@ -516,7 +581,12 @@ async function findTeamByName(
   return matchingTeams[0];
 }
 
-async function checkTeam(builder: MessageBuilder, config: OrganizationConfig, team: TeamConfig) {
+async function checkTeam(
+  builder: MessageBuilder,
+  config: OrganizationConfig,
+  team: TeamConfig,
+  usersNeedingInvite: string[],
+) {
   const octoTeam = await findTeamByName(builder, config, team.name);
   const orgOwners = await listAllOrgOwners(config);
   const octokit = await getOctokit(config.organization);
@@ -668,6 +738,10 @@ async function checkTeam(builder: MessageBuilder, config: OrganizationConfig, te
   }
 
   for (const supposedMaintainer of team.maintainers) {
+    // If the user has a pending invite to the org we should skip over their team membership
+    // as we can't actually add them till they accept the invite
+    if (usersNeedingInvite.includes(supposedMaintainer)) continue;
+
     // Maintainer according to the config is not currently a maintainer but should be
     if (
       !currentMaintainers.find(
@@ -744,6 +818,10 @@ async function checkTeam(builder: MessageBuilder, config: OrganizationConfig, te
   }
 
   for (const supposedMember of team.members) {
+    // If the user has a pending invite to the org we should skip over their team membership
+    // as we can't actually add them till they accept the invite
+    if (usersNeedingInvite.includes(supposedMember)) continue;
+
     // Member according to the config is not currently a member but should be
     if (!currentMembers.find((currentMember) => currentMember.login === supposedMember)) {
       // It's possible that this user is an org admin and currently registered as a "maintainer" due to a quirk in the GitHub API
