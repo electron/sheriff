@@ -32,9 +32,11 @@ export interface TeamConfig {
   slack?: string | true;
 }
 
-export interface PermissionsConfig {
+export interface OrganizationConfig {
   organization: string;
   repository_defaults: RepoSettings;
   teams: TeamConfig[];
   repositories: RepositoryConfig[];
 }
+
+export type PermissionsConfig = OrganizationConfig | OrganizationConfig[];

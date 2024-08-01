@@ -52,6 +52,10 @@ export class MessageBuilder {
     return this;
   }
 
+  public length() {
+    return this.state.blocks?.length || 0;
+  }
+
   public addRepositoryAndBlame(
     repository: webhookComponents['schemas']['repository-webhooks'],
     user: MinimalUserInfo,
@@ -220,6 +224,14 @@ export class MessageBuilder {
       this.state.blocks = [];
     }
     this.state.blocks.push(block);
+    return this;
+  }
+
+  public unshiftBlock(block: KnownBlock) {
+    if (!this.state.blocks) {
+      this.state.blocks = [];
+    }
+    this.state.blocks.unshift(block);
     return this;
   }
 

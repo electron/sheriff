@@ -115,15 +115,18 @@ async function takeActionOnRepositoryCollaborator(
   const repo = event.payload.repository;
   const member = event.payload.member!;
 
-  const currentConfig = await getValidatedConfig();
-  const targetRepoConfig = currentConfig.repositories.find((r) => r.name === repo.name);
+  const allConfigs = await getValidatedConfig();
+  const orgConfig = allConfigs.find((c) => c.organization === repo.owner.login);
+  if (!orgConfig) return { action: PermissionEnforcementAction.ALLOW_CHANGE };
+
+  const targetRepoConfig = orgConfig.repositories.find((r) => r.name === repo.name);
   if (!targetRepoConfig) return { action: PermissionEnforcementAction.ALLOW_CHANGE };
 
   let expectedLevel = targetRepoConfig.external_collaborators?.[member.login];
 
   const octokit = await getOctokit(repo.owner.login);
   const orgOwners = await octokit.paginate(octokit.orgs.listMembers, {
-    org: currentConfig.organization,
+    org: orgConfig.organization,
     role: 'admin',
   });
   // In the case where the user is an org owner, regardless of the configured level at the repository level
