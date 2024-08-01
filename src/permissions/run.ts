@@ -313,7 +313,8 @@ async function main() {
                 }" organization  and does not match name found on GitHub`,
                 chalk.yellow(githubUserInfo.data.login),
               );
-              return await builder.send();
+              if (!IS_DRY_RUN) await builder.send();
+              return;
             }
 
             userId = githubUserInfo.data.id;
@@ -326,7 +327,8 @@ async function main() {
               `User not in "${config.organization}" organization and could not be found on GitHub`,
               chalk.cyan(userNeedingInvite),
             );
-            return await builder.send();
+            if (!IS_DRY_RUN) await builder.send();
+            return;
           }
 
           builder.addContext(
