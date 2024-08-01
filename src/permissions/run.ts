@@ -374,6 +374,26 @@ async function main() {
       await checkRepository(builder, config, repo);
     }
 
+    if (builder.length() > 0) {
+      const org = await octokit.orgs.get({
+        org: config.organization,
+      });
+      builder.unshiftBlock({
+        type: 'context',
+        elements: [
+          {
+            type: 'image',
+            image_url: `https://github.com/${encodeURIComponent(config.organization)}.png`,
+            alt_text: `${org.data.name}`,
+          },
+          {
+            type: 'mrkdwn',
+            text: `*${org.data.name} Org*`,
+          },
+        ],
+      });
+    }
+
     if (!IS_DRY_RUN) await builder.send();
   }
 }
