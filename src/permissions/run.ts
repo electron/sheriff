@@ -91,6 +91,34 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
     });
   }
 
+  for (const orgConfig of orgConfigs) {
+    if (!orgConfig || typeof orgConfig !== 'object' || !orgConfig.teams) continue;
+
+    // Support reference prop
+    orgConfig.teams = orgConfig.teams.map((team) => {
+      const anyTeam = team as any;
+      if (anyTeam.reference) {
+        const [referencedOrgName, referencedTeamName] = anyTeam.reference.split('/');
+        const referencedOrg = orgConfigs.find((org) => org.organization === referencedOrgName);
+        // This will error out later
+        if (!referencedOrg) return team;
+        const referencedTeam = referencedOrg.teams.find((t) => t.name === referencedTeamName);
+        // This will also error out later
+        if (!referencedTeam) return team;
+
+        return {
+          name: team.name,
+          displayName: team.displayName,
+          gsuite: team.gsuite,
+          slack: team.slack,
+          maintainers: [...referencedTeam.maintainers],
+          members: [...referencedTeam.members],
+        };
+      }
+      return team;
+    });
+  }
+
   // Ensure the object looks right
   await Joi.validate(
     orgConfigs,
