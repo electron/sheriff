@@ -4,4 +4,5 @@ lib
 .env
 .envrc
 config.yml
+config.yaml
 yarn-error.log
