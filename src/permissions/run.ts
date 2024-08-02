@@ -126,56 +126,54 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
   }
 
   // Ensure the object looks right
-  await Joi.validate(
-    orgConfigs,
-    Joi.array()
-      .items(
-        Joi.object({
-          organization: Joi.string().min(1).required(),
-          repository_defaults: Joi.object({
-            has_wiki: Joi.boolean().required(),
-          }).required(),
-          teams: Joi.array()
-            .items({
-              name: Joi.string().min(1).required(),
-              displayName: Joi.string().min(1).optional(),
-              parent: Joi.string().min(1).optional(),
-              secret: Joi.bool().optional(),
-              members: Joi.array().items(Joi.string().min(1)).min(0).required(),
-              maintainers: Joi.array().items(Joi.string().min(1)).min(1).required(),
-              gsuite: Joi.object({
-                privacy: Joi.string().only('internal', 'external').required(),
-              }).optional(),
-              slack: Joi.string().min(1).allow(true).allow(false).optional(),
-            })
-            .required(),
-          repositories: Joi.array()
-            .items({
-              name: Joi.string().min(1).required(),
-              teams: Joi.object()
-                .pattern(
-                  Joi.string(),
-                  Joi.string().only('read', 'triage', 'write', 'maintain', 'admin'),
-                )
-                .optional(),
-              external_collaborators: Joi.object()
-                .pattern(
-                  Joi.string().min(1),
-                  Joi.string().only('read', 'triage', 'write', 'maintain', 'admin'),
-                )
-                .optional(),
-              settings: Joi.object({
-                has_wiki: Joi.boolean(),
-              }).optional(),
-              visibility: Joi.string().only('public', 'private').optional(),
-              properties: Joi.object().pattern(Joi.string(), Joi.string()).optional(),
-            })
-            .required(),
-        }),
-      )
-      .min(1)
-      .required(),
-  );
+  const schema = Joi.array()
+    .items(
+      Joi.object({
+        organization: Joi.string().min(1).required(),
+        repository_defaults: Joi.object({
+          has_wiki: Joi.boolean().required(),
+        }).required(),
+        teams: Joi.array()
+          .items({
+            name: Joi.string().min(1).required(),
+            displayName: Joi.string().min(1).optional(),
+            parent: Joi.string().min(1).optional(),
+            secret: Joi.bool().optional(),
+            members: Joi.array().items(Joi.string().min(1)).min(0).required(),
+            maintainers: Joi.array().items(Joi.string().min(1)).min(1).required(),
+            gsuite: Joi.object({
+              privacy: Joi.string().valid('internal', 'external').required(),
+            }).optional(),
+            slack: Joi.string().min(1).allow(true).allow(false).optional(),
+          })
+          .required(),
+        repositories: Joi.array()
+          .items({
+            name: Joi.string().min(1).required(),
+            teams: Joi.object()
+              .pattern(
+                Joi.string(),
+                Joi.string().valid('read', 'triage', 'write', 'maintain', 'admin'),
+              )
+              .optional(),
+            external_collaborators: Joi.object()
+              .pattern(
+                Joi.string().min(1),
+                Joi.string().valid('read', 'triage', 'write', 'maintain', 'admin'),
+              )
+              .optional(),
+            settings: Joi.object({
+              has_wiki: Joi.boolean(),
+            }).optional(),
+            visibility: Joi.string().valid('public', 'private').optional(),
+            properties: Joi.object().pattern(Joi.string(), Joi.string()).optional(),
+          })
+          .required(),
+      }),
+    )
+    .min(1)
+    .required();
+  await schema.validateAsync(orgConfigs);
 
   for (const orgConfig of orgConfigs) {
     for (const team of orgConfig.teams) {
