@@ -496,6 +496,21 @@ webhooks.on(
       event.payload.repository.owner.login === PERMISSIONS_FILE_ORG
     ) {
       const octokit = await getOctokit(event.payload.repository.owner.login);
+
+      let mergeableState = event.payload.pull_request.mergeable_state;
+      let attempt = 0;
+      while ((!mergeableState || mergeableState === 'unknown') && attempt < 10) {
+        await new Promise((r) => setTimeout(r, 5000));
+        attempt++;
+
+        const pr = await octokit.pulls.get({
+          owner: PERMISSIONS_FILE_REPO,
+          repo: PERMISSIONS_FILE_REPO,
+          pull_number: event.payload.pull_request.number,
+        });
+        mergeableState = pr.data.mergeable_state;
+      }
+
       await queueDryRun(
         octokit,
         event.payload.pull_request.merge_commit_sha,
