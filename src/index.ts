@@ -496,7 +496,11 @@ webhooks.on(
       event.payload.repository.owner.login === PERMISSIONS_FILE_ORG
     ) {
       const octokit = await getOctokit(event.payload.repository.owner.login);
-      await queueDryRun(octokit, event.payload.pull_request.head.sha);
+      await queueDryRun(
+        octokit,
+        event.payload.pull_request.merge_commit_sha,
+        event.payload.pull_request.head.sha,
+      );
     }
   }),
 );
