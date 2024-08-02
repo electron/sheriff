@@ -504,7 +504,7 @@ webhooks.on(
         attempt++;
 
         const pr = await octokit.pulls.get({
-          owner: PERMISSIONS_FILE_REPO,
+          owner: PERMISSIONS_FILE_ORG,
           repo: PERMISSIONS_FILE_REPO,
           pull_number: event.payload.pull_request.number,
         });
