@@ -248,5 +248,6 @@ export class MessageBuilder {
       };
       await hook.send(state);
     }
+    this.state.blocks = [];
   }
 }

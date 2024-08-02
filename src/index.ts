@@ -21,6 +21,8 @@ import { getOctokit } from './octokit.js';
 import {
   AUTO_TUNNEL_NGROK,
   GITHUB_WEBHOOK_SECRET,
+  PERMISSIONS_FILE_ORG,
+  PERMISSIONS_FILE_REPO,
   PORT,
   SHERIFF_IMPORTANT_BRANCH,
   SHERIFF_SELF_LOGIN,
@@ -33,6 +35,7 @@ import {
   sheriffLevelToGitHubLevel,
 } from './permissions/level-converters.js';
 import { SheriffAccessLevel } from './permissions/types.js';
+import { queueDryRun } from './dry-run-q.js';
 
 const webhooks = new WebhooksApi({
   secret: GITHUB_WEBHOOK_SECRET,
@@ -481,6 +484,20 @@ webhooks.on(
       .addSeverity('warning')
       .addContext(`:suspicious-fry: *Org Owners* can review/revoke this token <${requestUrl}|here>`)
       .send();
+  }),
+);
+
+webhooks.on(
+  ['pull_request.opened', 'pull_request.synchronize'],
+  hook(async (event) => {
+    // Only handle check suites for the permissions repo
+    if (
+      event.payload.repository.name === PERMISSIONS_FILE_REPO &&
+      event.payload.repository.owner.login === PERMISSIONS_FILE_ORG
+    ) {
+      const octokit = await getOctokit(event.payload.repository.owner.login);
+      await queueDryRun(octokit, event.payload.pull_request.head.sha);
+    }
   }),
 );
 

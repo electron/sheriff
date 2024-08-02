@@ -15,6 +15,7 @@ import {
   PERMISSIONS_FILE_PATH,
   PERMISSIONS_FILE_REPO,
   PERMISSIONS_FILE_REF,
+  PERMISSIONS_FILE_LOCAL_PATH,
 } from '../constants.js';
 import {
   OrganizationConfig,
@@ -42,6 +43,9 @@ const loadCurrentConfig = async () => {
     return yml.safeLoad(fs.readFileSync('config.yml', 'utf8')) as PermissionsConfig;
   if (fs.existsSync('config.yaml'))
     return yml.safeLoad(fs.readFileSync('config.yaml', 'utf8')) as PermissionsConfig;
+  if (PERMISSIONS_FILE_LOCAL_PATH && fs.existsSync(PERMISSIONS_FILE_LOCAL_PATH)) {
+    return yml.safeLoad(fs.readFileSync(PERMISSIONS_FILE_LOCAL_PATH, 'utf8')) as PermissionsConfig;
+  }
   if (!PERMISSIONS_FILE_ORG) {
     throw new Error('Missing PERMISSIONS_FILE_ORG env var');
   }
@@ -267,11 +271,11 @@ export const getValidatedConfig = async () => {
 };
 
 async function main() {
-  const builder = MessageBuilder.create();
   const rawConfig = await loadCurrentConfig();
   const orgConfigs = await validateConfigFast(rawConfig);
 
   for (const config of orgConfigs) {
+    const builder = MessageBuilder.create();
     const builderLengthAtStart = builder.length();
 
     console.info(
