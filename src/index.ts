@@ -510,14 +510,10 @@ webhooks.on(
           pull_number: event.payload.pull_request.number,
         });
         mergeableState = pr.data.mergeable_state;
-        mergeCommitSha = pr.data.merge_commit_sha
+        mergeCommitSha = pr.data.merge_commit_sha;
       }
 
-      await queueDryRun(
-        octokit,
-        mergeCommitSha,
-        event.payload.pull_request.head.sha,
-      );
+      await queueDryRun(octokit, mergeCommitSha, event.payload.pull_request.head.sha);
     }
   }),
 );
