@@ -498,6 +498,7 @@ webhooks.on(
       const octokit = await getOctokit(event.payload.repository.owner.login);
 
       let mergeableState = event.payload.pull_request.mergeable_state;
+      let mergeCommitSha = event.payload.pull_request.merge_commit_sha;
       let attempt = 0;
       while ((!mergeableState || mergeableState === 'unknown') && attempt < 10) {
         await new Promise((r) => setTimeout(r, 5000));
@@ -509,13 +510,10 @@ webhooks.on(
           pull_number: event.payload.pull_request.number,
         });
         mergeableState = pr.data.mergeable_state;
+        mergeCommitSha = pr.data.merge_commit_sha;
       }
 
-      await queueDryRun(
-        octokit,
-        event.payload.pull_request.merge_commit_sha,
-        event.payload.pull_request.head.sha,
-      );
+      await queueDryRun(octokit, mergeCommitSha, event.payload.pull_request.head.sha);
     }
   }),
 );
