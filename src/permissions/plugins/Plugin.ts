@@ -1,6 +1,11 @@
 import { MessageBuilder } from '../../MessageBuilder.js';
-import { TeamConfig } from '../types.js';
+import { RepositoryConfig, TeamConfig } from '../types.js';
 
 export interface Plugin {
-  handleTeam: (team: TeamConfig, builder: MessageBuilder) => Promise<void>;
+  handleTeam?: (team: TeamConfig, builder: MessageBuilder) => Promise<void>;
+  handleRepo?: (
+    repo: RepositoryConfig,
+    teams: TeamConfig[],
+    builder: MessageBuilder,
+  ) => Promise<void>;
 }

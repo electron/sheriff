@@ -13,6 +13,11 @@ export interface RepositoryConfig {
   settings?: Partial<RepoSettings>;
   visibility?: 'public' | 'private' | 'current';
   properties?: Record<string, string>;
+  heroku?: {
+    app_name: string;
+    team_name: string;
+    access: string[];
+  };
 }
 
 export interface RepoSettings {
