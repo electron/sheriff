@@ -19,6 +19,9 @@ export const SHERIFF_HOST_URL = process.env.SHERIFF_HOST_URL;
 export const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
 export const SLACK_TOKEN = process.env.SLACK_TOKEN;
 
+export const HEROKU_TOKEN = process.env.HEROKU_TOKEN;
+export const HEROKU_MAGIC_ADMIN = process.env.HEROKU_MAGIC_ADMIN;
+
 export const SHERIFF_PLUGINS = process.env.SHERIFF_PLUGINS || '';
 
 export const GSUITE_CREDENTIALS = process.env.GSUITE_CREDENTIALS;

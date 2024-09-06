@@ -167,6 +167,11 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
             }).optional(),
             visibility: Joi.string().valid('public', 'private').optional(),
             properties: Joi.object().pattern(Joi.string(), Joi.string()).optional(),
+            heroku: Joi.object({
+              app_name: Joi.string().min(1).required(),
+              team_name: Joi.string().min(1).required(),
+              access: Joi.array().items(Joi.string().min(1)).min(1).required(),
+            }).optional(),
           })
           .required(),
       }),
@@ -407,7 +412,7 @@ async function main() {
 
     for (const team of config.teams) {
       for (const plugin of plugins) {
-        await plugin.handleTeam(team, builder);
+        await plugin.handleTeam?.(team, builder);
       }
       await checkTeam(builder, config, team, usersNeedingInvite);
     }
@@ -457,6 +462,10 @@ async function main() {
 
     for (const repo of reposToCheck) {
       await checkRepository(builder, config, repo);
+
+      for (const plugin of plugins) {
+        await plugin.handleRepo?.(repo, config.teams, builder);
+      }
     }
 
     if (builder.length() > builderLengthAtStart) {
