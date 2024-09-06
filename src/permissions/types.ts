@@ -16,7 +16,7 @@ export interface RepositoryConfig {
   heroku?: {
     app_name: string;
     team_name: string;
-    access: string[];
+    access?: string[];
   };
 }
 
