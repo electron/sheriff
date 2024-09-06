@@ -170,7 +170,7 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
             heroku: Joi.object({
               app_name: Joi.string().min(1).required(),
               team_name: Joi.string().min(1).required(),
-              access: Joi.array().items(Joi.string().min(1)).min(1).required(),
+              access: Joi.array().items(Joi.string().min(1)).optional(),
             }).optional(),
           })
           .required(),
@@ -261,6 +261,18 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
           throw new Error(
             `Team "${team}" assigned to "${repo.name}" does not exist in the "teams" config for "${orgConfig.organization}"`,
           );
+      }
+
+      if (repo.heroku && repo.heroku.access) {
+        for (const user of repo.heroku.access) {
+          if (user.startsWith('team:')) {
+            if (!orgConfig.teams.find((t) => t.name === user.slice('team:'.length))) {
+              throw new Error(
+                `Team "${user}" assigned to heroku for "${repo.name}" does not exist in the "teams" config for "${orgConfig.organization}"`,
+              );
+            }
+          }
+        }
       }
     }
   }

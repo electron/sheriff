@@ -36,6 +36,21 @@ class HerokuPlugin implements Plugin {
     const { heroku } = repo;
     if (!heroku) return;
 
+    const userEmails: string[] = [];
+    if (heroku.access) {
+      for (const user of heroku.access) {
+        if (user.startsWith('team:')) {
+          const teamName = user.slice('team:'.length);
+          const targetTeam = teams.find((t) => t.name === teamName)!;
+          for (const member of [...targetTeam.members, ...targetTeam.maintainers]) {
+            userEmails.push(`${member}@${SHERIFF_GSUITE_DOMAIN}`);
+          }
+        } else {
+          userEmails.push(`${user}@${SHERIFF_GSUITE_DOMAIN}`);
+        }
+      }
+    }
+
     const collaborators = (
       (await this.client.get(`/teams/apps/${heroku.app_name}/collaborators`)) as HerokuCollab[]
     ).filter(
@@ -56,9 +71,7 @@ class HerokuPlugin implements Plugin {
       });
     }
 
-    for (const user of heroku.access) {
-      const email = `${user}@${SHERIFF_GSUITE_DOMAIN}`;
-
+    for (const email of userEmails) {
       // If this user is not a collab and not an admin, we need to add them
       if (
         !collaborators.find((c) => this.emailSame(c.user.email, email)) &&
@@ -86,11 +99,7 @@ class HerokuPlugin implements Plugin {
 
     for (const collab of collaborators) {
       // If this collab is not supposed to have access, nuke em
-      if (
-        !heroku.access.find((user) =>
-          this.emailSame(collab.user.email, `${user}@${SHERIFF_GSUITE_DOMAIN}`),
-        )
-      ) {
+      if (!userEmails.find((email) => this.emailSame(collab.user.email, email))) {
         builder.addContext(
           `:skull_and_crossbones: Evicting \`${collab.user.email}\` out of Heroku app \`${heroku.app_name}\``,
         );
