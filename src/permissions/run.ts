@@ -452,6 +452,11 @@ async function main() {
       // be in our config in case it becomes un-archived
       if (!octoRepo.archived) {
         reposToCheck.push(repo);
+      } else {
+        // Even archived repos need to have the plugins run on them
+        for (const plugin of plugins) {
+          await plugin.handleRepo?.(repo, config.teams, builder);
+        }
       }
     }
 
