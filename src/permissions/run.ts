@@ -22,11 +22,13 @@ import {
   PermissionsConfig,
   RepoSettings,
   RepositoryConfig,
+  Ruleset,
   SheriffAccessLevel,
   TeamConfig,
 } from './types.js';
 import { gitHubPermissionsToSheriffLevel, sheriffLevelToGitHubLevel } from './level-converters.js';
 import { fileURLToPath } from 'url';
+import { getDifferenceWithGithubRuleset, rulesetToGithub } from './ruleset.js';
 
 const queue = _queue as unknown as typeof _queue.default;
 
@@ -125,6 +127,51 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
     });
   }
 
+  const rulesetValidator = Joi.object({
+    name: Joi.string().min(1).required(),
+    target: Joi.string().valid('branch', 'tag').required(),
+    enforcement: Joi.string().valid('disabled', 'active', 'evaluate').optional(),
+    bypass: Joi.object({
+      teams: Joi.array().items(Joi.string().min(1)).optional(),
+      apps: Joi.array().items(Joi.number().integer().min(1)).optional(),
+    }).optional(),
+    ref_name: Joi.object({
+      include: Joi.array().items(Joi.string().min(1)).required(),
+      exclude: Joi.array().items(Joi.string().min(1)).optional(),
+    }).required(),
+    rules: Joi.array()
+      .items(
+        Joi.string().valid(
+          'restrict_creation',
+          'restrict_update',
+          'restrict_deletion',
+          'require_linear_history',
+          'require_signed_commits',
+          'restrict_force_push',
+        ),
+      )
+      .required(),
+    require_pull_request: Joi.alternatives(
+      Joi.boolean().valid(true),
+      Joi.object({
+        dismiss_stale_reviews_on_push: Joi.boolean(),
+        require_code_owner_review: Joi.boolean(),
+        require_last_push_approval: Joi.boolean(),
+        required_approving_review_count: Joi.number().integer().greater(0),
+        required_review_thread_resolution: Joi.boolean(),
+      }),
+    ).optional(),
+    require_status_checks: Joi.array()
+      .items(
+        Joi.object({
+          context: Joi.string().min(1).required(),
+          app_id: Joi.number().integer().greater(0).required(),
+        }),
+      )
+      .min(1)
+      .optional(),
+  });
+
   // Ensure the object looks right
   const schema = Joi.array()
     .items(
@@ -172,8 +219,13 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
               team_name: Joi.string().min(1).required(),
               access: Joi.array().items(Joi.string().min(1)).optional(),
             }).optional(),
+            rulesets: Joi.array()
+              .items(Joi.alternatives(Joi.string().min(1), rulesetValidator))
+              .min(1)
+              .optional(),
           })
           .required(),
+        common_rulesets: Joi.array().items(rulesetValidator).min(1).optional(),
       }),
     )
     .min(1)
@@ -273,6 +325,57 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
             }
           }
         }
+      }
+
+      if (repo.rulesets) {
+        const newRulesets = repo.rulesets.map((ruleset) => {
+          if (typeof ruleset === 'string') {
+            const mappedRuleset = orgConfig.common_rulesets?.find(
+              (common) => common.name === ruleset,
+            );
+            if (!mappedRuleset) {
+              throw new Error(
+                `Ruleset "${ruleset}" assigned to repo "${repo.name}" does not exist in the "common_rulesets" config for "${orgConfig.organization}"`,
+              );
+            }
+            return mappedRuleset;
+          }
+          return ruleset;
+        });
+
+        if (newRulesets.length !== new Set(newRulesets.map((r) => r.name)).size) {
+          throw new Error(
+            `Rulesets for repo "${repo.name}" have a duplicate name, names of rulesets must be unique for a given repo`,
+          );
+        }
+
+        for (const ruleset of newRulesets) {
+          if (ruleset.bypass && !ruleset.bypass.apps && !ruleset.bypass.teams) {
+            throw new Error(
+              `Ruleset "${ruleset.name}" for repo "${repo.name}" has bypass set but no teams or apps, either remove the bypass setting or provide a apps or teams block`,
+            );
+          }
+
+          if (ruleset.bypass?.teams) {
+            for (const team of ruleset.bypass?.teams) {
+              if (!orgConfig.teams.some((t) => t.name === team)) {
+                throw new Error(
+                  `Ruleset "${ruleset.name}" for repo "${repo.name}" has bypass team "${team}" but that team does not appear to exist, create it in this config first`,
+                );
+              }
+            }
+          }
+
+          if (ruleset.rules) {
+            if (ruleset.rules.length !== new Set(ruleset.rules).size) {
+              throw new Error(
+                `Ruleset "${ruleset.name}" for repo "${repo.name}" has duplicate rule configured, please remove the duplicate rule in the rules block`,
+              );
+            }
+          }
+        }
+
+        repo.rulesets = newRulesets;
       }
     }
   }
@@ -901,7 +1004,7 @@ const metadata = new Map<
 >();
 async function loadRepositoryMetadata(config: OrganizationConfig, repo: RepositoryConfig) {
   const octokit = await getOctokit(config.organization);
-  const [currentTeams, currentInvites, currentCollaborators] = await Promise.all([
+  const [currentTeams, currentInvites, currentCollaborators, currentRulesets] = await Promise.all([
     octokit.paginate(octokit.repos.listTeams, {
       owner: config.organization,
       repo: repo.name,
@@ -915,9 +1018,30 @@ async function loadRepositoryMetadata(config: OrganizationConfig, repo: Reposito
       repo: repo.name,
       affiliation: 'direct',
     }),
+    repo.rulesets
+      ? octokit
+          .paginate(octokit.repos.getRepoRulesets, {
+            repo: repo.name,
+            owner: config.organization,
+          })
+          .then((all) => {
+            return Promise.all(
+              all.map(
+                async (ruleset) =>
+                  (
+                    await octokit.repos.getRepoRuleset({
+                      repo: repo.name,
+                      owner: config.organization,
+                      ruleset_id: ruleset.id,
+                    })
+                  ).data,
+              ),
+            );
+          })
+      : Promise.resolve(null),
   ]);
 
-  return { currentTeams, currentInvites, currentCollaborators };
+  return { currentTeams, currentInvites, currentCollaborators, currentRulesets };
 }
 
 async function preloadRepositoryMetadata(config: OrganizationConfig, repo: RepositoryConfig) {
@@ -931,7 +1055,8 @@ async function checkRepository(
   config: OrganizationConfig,
   repo: RepositoryConfig,
 ) {
-  const { currentTeams, currentInvites, currentCollaborators } = metadata.get(repo)!;
+  const { currentTeams, currentInvites, currentCollaborators, currentRulesets } =
+    metadata.get(repo)!;
 
   for (const currentTeam of currentTeams) {
     // Current team should not be on this repo according to the config
@@ -1238,7 +1363,7 @@ async function checkRepository(
       repo: repo.name,
     });
 
-    const sortProps = (a: typeof mappedProperties[0], b: typeof mappedProperties[0]) =>
+    const sortProps = (a: { property_name: string }, b: { property_name: string }) =>
       a.property_name.localeCompare(b.property_name);
     const mappedProperties = Object.entries(repo.properties)
       .map(([key, value]) => ({
@@ -1260,6 +1385,107 @@ async function checkRepository(
           org: config.organization,
           repository_names: [repo.name],
           properties: mappedProperties,
+        });
+      }
+    }
+  }
+
+  if (repo.rulesets && currentRulesets) {
+    const expectedRulesets = repo.rulesets as Ruleset[];
+    const octokit = await getOctokit(config.organization);
+
+    const rulesetsToAdd: Ruleset[] = [];
+
+    // Figure out which rulesets we do not have at tall
+    for (const ruleset of expectedRulesets) {
+      if (!currentRulesets.some((r) => r.name === ruleset.name)) {
+        rulesetsToAdd.push(ruleset);
+      }
+    }
+
+    for (const ruleset of currentRulesets) {
+      const expectedRuleset = expectedRulesets.find((r) => r.name === ruleset.name);
+      // If we should not have this ruleset, nuke it
+      if (!expectedRuleset) {
+        console.info(
+          chalk.red('Removing Ruleset'),
+          chalk.cyan(ruleset.name),
+          'from repo',
+          chalk.cyan(repo.name),
+          "as it's not in the config",
+        );
+        builder.addContext(
+          `:gavel: :fire: Removing Ruleset \`${ruleset.name}\` from repo \`${repo.name}\` as it\'s not in the config`,
+        );
+
+        if (!IS_DRY_RUN) {
+          await octokit.repos.deleteRepoRuleset({
+            repo: repo.name,
+            owner: config.organization,
+            ruleset_id: ruleset.id,
+          });
+        }
+        continue;
+      }
+
+      // If we should have this ruleset, let's make sure the settings are the same
+      // to do that we generate the theoretical github ruleset blob and just
+      // compare them deeply. We need this to add them anyway, so let's generate it
+      // in a helper to de-dupe this logic.
+      const allTeams = await listAllTeams(config);
+      const githubFormattedRuleset = rulesetToGithub(expectedRuleset, allTeams);
+      const difference = getDifferenceWithGithubRuleset(githubFormattedRuleset, ruleset, true);
+      if (difference) {
+        builder.addContext(
+          `:gavel: :arrows_clockwise: Updating Ruleset \`${ruleset.name}\` in repo \`${repo.name}\` as we\'ve detected changes\n\n\`\`\`\n${difference}\n\`\`\`\n`,
+        );
+        console.info(
+          chalk.yellow('Updating Ruleset'),
+          chalk.cyan(ruleset.name),
+          'in repo',
+          chalk.cyan(repo.name),
+          "as we've detected changes",
+        );
+        console.info(getDifferenceWithGithubRuleset(githubFormattedRuleset, ruleset, false));
+
+        if (!IS_DRY_RUN) {
+          await octokit.repos.updateRepoRuleset({
+            repo: repo.name,
+            owner: config.organization,
+            ruleset_id: ruleset.id,
+            ...githubFormattedRuleset,
+          });
+        }
+      }
+    }
+
+    for (const ruleset of rulesetsToAdd) {
+      const allTeams = await listAllTeams(config);
+      const githubFormattedRuleset = rulesetToGithub(ruleset, allTeams);
+
+      builder.addContext(
+        `:gavel: :new: Creating Ruleset \`${ruleset.name}\` in repo \`${
+          repo.name
+        }\` as it does not exist\n\n\`\`\`\n${getDifferenceWithGithubRuleset(
+          githubFormattedRuleset,
+          null,
+          true,
+        )}\n\`\`\`\n`,
+      );
+      console.info(
+        chalk.green('Creating Ruleset'),
+        chalk.cyan(ruleset.name),
+        'in repo',
+        chalk.cyan(repo.name),
+        'as it does not exist',
+      );
+      console.info(getDifferenceWithGithubRuleset(githubFormattedRuleset, null, false));
+
+      if (!IS_DRY_RUN) {
+        await octokit.repos.createRepoRuleset({
+          repo: repo.name,
+          owner: config.organization,
+          ...githubFormattedRuleset,
         });
       }
     }
