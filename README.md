@@ -189,6 +189,8 @@ repositories:
       # Ruleset names must be unique for a given repository
       - name: <ruleset name>
         target: branch | tag
+        # Optional enforcement status, defaults to "active"
+        enforcement: disabled | active | evaluate
         # Optional bypass configuration
         bypass:
           # Team names that can bypass this ruleset
@@ -236,7 +238,7 @@ repositories:
             # in sheriff for good security practices
             app_id: <number>
 common_rulesets:
-  # Same structure as the object in `repositories[name].rulesets
+  # Same structure as the object in `repositories[name].rulesets`
   # Used to deduplicate rulesets that you want to apply to multiple repos
   - <object>
 ```

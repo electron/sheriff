@@ -150,7 +150,8 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
           'restrict_force_push',
         ),
       )
-      .required(),
+      .min(1)
+      .optional(),
     require_pull_request: Joi.alternatives(
       Joi.boolean().valid(true),
       Joi.object({
@@ -1396,7 +1397,7 @@ async function checkRepository(
 
     const rulesetsToAdd: Ruleset[] = [];
 
-    // Figure out which rulesets we do not have at tall
+    // Figure out which rulesets we do not have at all
     for (const ruleset of expectedRulesets) {
       if (!currentRulesets.some((r) => r.name === ruleset.name)) {
         rulesetsToAdd.push(ruleset);
