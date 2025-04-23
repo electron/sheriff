@@ -184,6 +184,63 @@ repositories:
       has_wiki: <boolean>
     # Public vs Private repository, no value is assumed to mean public
     visibility: public | private
+    rulesets:
+      - name-of-common-ruleset
+      # Ruleset names must be unique for a given repository
+      - name: <ruleset name>
+        target: branch | tag
+        # Optional enforcement status, defaults to "active"
+        enforcement: disabled | active | evaluate
+        # Optional bypass configuration
+        bypass:
+          # Team names that can bypass this ruleset
+          teams: Array<string>
+          # App ids that can bypass this ruleset
+          apps: Array<number>
+        ref_name:
+          # Targeting ref for this ruleset, "~DEFAULT_BRANCH" is a magic
+          # string that GitHub translates to the current default branch
+          include: ["~DEFAULT_BRANCH"]
+          # Optional targeting ref for this ruleset that is _excluded_ from the
+          # include matching
+          exclude: []
+        # Which basic rules to apply as part of this ruleset
+        # Possible / supported options are included and documented below
+        rules:
+          # Prevent refs matching this ruleset from being created
+          - restrict_creation
+          # Prevent refs matching this ruleset from being updated
+          - restrict_update
+          # Prevent refs matching this ruleset from being deleted
+          - restrict_deletion
+          # Prevent refs matching this ruleset from receiving force pushes
+          - restrict_force_push
+          # Prevent refs matching this ruleset from receiving merge commits
+          - require_linear_history
+          # Require refs matching this ruleset only receive signed commits
+          - require_signed_commits
+        # Can be simply "true" to require pull requests before changes are pushed to
+        # matching refs. Advanced configuration can be provided via an object as documented
+        # below
+        require_pull_request:
+          # All params are optional and map exactly to the github API
+          # They are also all quite literal :)
+          dismiss_stale_reviews_on_push: <boolean>
+          require_code_owner_review: <boolean>
+          require_last_push_approval: <boolean>
+          required_approving_review_count: <number>
+          required_review_thread_resolution: <boolean>
+        # Status checks that are required to make changes to the matching ref
+        require_status_checks:
+            # The literal check name that is required, this is what shows up in the GitHub UI
+          - context: <string>
+            # The app ID that makes this check, this is optional in the GitHub API but required
+            # in sheriff for good security practices
+            app_id: <number>
+common_rulesets:
+  # Same structure as the object in `repositories[name].rulesets`
+  # Used to deduplicate rulesets that you want to apply to multiple repos
+  - <object>
 ```
 
 #### Generating your initial configuration

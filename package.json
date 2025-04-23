@@ -30,12 +30,14 @@
     "fs-extra": "^8.0.1",
     "googleapis": "^109.0.1",
     "heroku-client": "^3.1.0",
+    "jest-diff": "^29.7.0",
     "joi": "^17.13.3",
     "js-yaml": "^3.13.1",
     "ora": "^5.1.2",
     "queue": "^6.0.2"
   },
   "devDependencies": {
+    "@octokit/openapi-types": "^24.0.0",
     "@types/dotenv": "^8.2.0",
     "@types/dotenv-safe": "^8.1.6",
     "@types/express": "^4.17.0",
