@@ -22,15 +22,14 @@ export interface Ruleset {
     exclude?: string[];
   };
   rules?: BasicRule[];
-  require_pull_request?:
-    | true
-    | {
-        dismiss_stale_reviews_on_push?: boolean;
-        require_code_owner_review?: boolean;
-        require_last_push_approval?: boolean;
-        required_approving_review_count: number;
-        required_review_thread_resolution?: boolean;
-      };
+  require_pull_request?: {
+    dismiss_stale_reviews_on_push?: boolean;
+    require_code_owner_review?: boolean;
+    require_last_push_approval?: boolean;
+    required_approving_review_count: number;
+    required_review_thread_resolution?: boolean;
+    allowed_merge_methods?: ('merge' | 'squash' | 'rebase')[];
+  };
   require_status_checks?: {
     context: string;
     app_id: number;
