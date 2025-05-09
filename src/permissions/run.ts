@@ -153,13 +153,16 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
       .min(1)
       .optional(),
     require_pull_request: Joi.alternatives(
-      Joi.boolean().valid(true),
       Joi.object({
         dismiss_stale_reviews_on_push: Joi.boolean(),
         require_code_owner_review: Joi.boolean(),
         require_last_push_approval: Joi.boolean(),
         required_approving_review_count: Joi.number().integer().greater(0),
         required_review_thread_resolution: Joi.boolean(),
+        allowed_merge_methods: Joi.array()
+          .items(Joi.string().valid('merge', 'squash', 'rebase'))
+          .min(1)
+          .optional(),
       }),
     ).optional(),
     require_status_checks: Joi.array()

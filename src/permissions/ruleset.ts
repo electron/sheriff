@@ -44,21 +44,18 @@ export function rulesetToGithub(ruleset: Ruleset, allTeams: { id: number; name: 
   if (ruleset.require_pull_request) {
     generatedRules.push({
       type: 'pull_request',
-      parameters:
-        ruleset.require_pull_request === true
-          ? undefined
-          : {
-              dismiss_stale_reviews_on_push:
-                ruleset.require_pull_request.dismiss_stale_reviews_on_push ?? false,
-              require_code_owner_review:
-                ruleset.require_pull_request.require_code_owner_review ?? false,
-              require_last_push_approval:
-                ruleset.require_pull_request.require_last_push_approval ?? false,
-              required_approving_review_count:
-                ruleset.require_pull_request.required_approving_review_count ?? 0,
-              required_review_thread_resolution:
-                ruleset.require_pull_request.required_review_thread_resolution ?? false,
-            },
+      parameters: {
+        dismiss_stale_reviews_on_push:
+          ruleset.require_pull_request?.dismiss_stale_reviews_on_push ?? false,
+        require_code_owner_review: ruleset.require_pull_request?.require_code_owner_review ?? false,
+        require_last_push_approval:
+          ruleset.require_pull_request?.require_last_push_approval ?? false,
+        required_approving_review_count:
+          ruleset.require_pull_request?.required_approving_review_count ?? 0,
+        required_review_thread_resolution:
+          ruleset.require_pull_request?.required_review_thread_resolution ?? false,
+        allowed_merge_methods: ruleset.require_pull_request?.allowed_merge_methods ?? ['squash'],
+      },
     });
   }
   if (ruleset.require_status_checks) {
@@ -90,7 +87,7 @@ export function rulesetToGithub(ruleset: Ruleset, allTeams: { id: number; name: 
             bypass_mode: 'always' as const,
           })) || []),
         ].sort(sortBypassActors)
-      : undefined,
+      : [],
     conditions: {
       ref_name: {
         include: ruleset.ref_name.include,
@@ -127,6 +124,12 @@ export function getDifferenceWithGithubRuleset(
         rules: _clonedGithubRuleset.rules?.sort((a, b) => a.type.localeCompare(b.type)) as any,
       }
     : ({} as any);
+  // This property is not in the API types but it is in the response, nuke it
+  const prParameters = clonedGitHubRuleset.rules?.find((r) => r.type === 'pull_request')
+    ?.parameters as any;
+  if (prParameters) {
+    delete prParameters.automatic_copilot_code_review_enabled;
+  }
 
   if (stripAnsi) {
     const difference = diff(ruleset, clonedGitHubRuleset, {
