@@ -29,6 +29,8 @@ import {
 import { gitHubPermissionsToSheriffLevel, sheriffLevelToGitHubLevel } from './level-converters.js';
 import { fileURLToPath } from 'url';
 import { getDifferenceWithGithubRuleset, rulesetToGithub } from './ruleset.js';
+import { components } from '@octokit/openapi-types';
+import { isDeepStrictEqual } from 'util';
 
 const queue = _queue as unknown as typeof _queue.default;
 
@@ -217,7 +219,12 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
               has_wiki: Joi.boolean(),
             }).optional(),
             visibility: Joi.string().valid('public', 'private').optional(),
-            properties: Joi.object().pattern(Joi.string(), Joi.string()).optional(),
+            properties: Joi.object()
+              .pattern(
+                Joi.string(),
+                Joi.alternatives(Joi.string(), Joi.array().items(Joi.string())),
+              )
+              .optional(),
             heroku: Joi.object({
               app_name: Joi.string().min(1).required(),
               team_name: Joi.string().min(1).required(),
@@ -230,6 +237,21 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
           })
           .required(),
         common_rulesets: Joi.array().items(rulesetValidator).min(1).optional(),
+        customProperties: Joi.array()
+          .items(
+            Joi.object({
+              property_name: Joi.string().min(1).required(),
+              value_type: Joi.string().valid('string', 'single_select', 'multi_select').required(),
+              required: Joi.boolean().optional(),
+              default_value: Joi.alternatives(
+                Joi.string(),
+                Joi.array().items(Joi.string()),
+              ).optional(),
+              description: Joi.string().optional(),
+              allowed_values: Joi.array().items(Joi.string().min(1)).optional(),
+            }),
+          )
+          .optional(),
       }),
     )
     .min(1)
@@ -309,6 +331,148 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
         );
       }
       seenRepos.add(repo.name);
+    }
+
+    if (orgConfig.customProperties?.length) {
+      for (const customProp of orgConfig.customProperties) {
+        if (customProp.allowed_values) {
+          if (customProp.value_type === 'string') {
+            throw new Error(
+              `Custom property "${customProp.property_name}" has type "string" but specifies allowed_values. allowed_values should only be used with single_select or multi_select types.`,
+            );
+          }
+          if (customProp.allowed_values.length === 0) {
+            throw new Error(
+              `Custom property "${customProp.property_name}" has an empty allowed_values array. Select types must have at least one allowed value.`,
+            );
+          }
+        }
+
+        if (
+          (customProp.value_type === 'single_select' || customProp.value_type === 'multi_select') &&
+          (!customProp.allowed_values || customProp.allowed_values.length === 0)
+        ) {
+          throw new Error(
+            `Custom property "${customProp.property_name}" has type "${customProp.value_type}" but does not specify allowed_values. Select types require at least one allowed value.`,
+          );
+        }
+
+        if (customProp.default_value !== undefined) {
+          if (customProp.value_type === 'single_select') {
+            if (Array.isArray(customProp.default_value)) {
+              throw new Error(
+                `Custom property "${customProp.property_name}" has type "single_select" but default_value is an array. single_select default_value must be a string.`,
+              );
+            }
+            if (
+              customProp.allowed_values &&
+              !customProp.allowed_values.includes(customProp.default_value as string)
+            ) {
+              throw new Error(
+                `Custom property "${customProp.property_name}" has default_value "${
+                  customProp.default_value
+                }" which is not in allowed_values: ${customProp.allowed_values.join(', ')}`,
+              );
+            }
+          } else if (customProp.value_type === 'multi_select') {
+            if (!Array.isArray(customProp.default_value)) {
+              throw new Error(
+                `Custom property "${customProp.property_name}" has type "multi_select" but default_value is not an array. multi_select default_value must be an array of strings.`,
+              );
+            }
+            if (customProp.allowed_values) {
+              for (const val of customProp.default_value) {
+                if (!customProp.allowed_values.includes(val)) {
+                  throw new Error(
+                    `Custom property "${
+                      customProp.property_name
+                    }" has default_value containing "${val}" which is not in allowed_values: ${customProp.allowed_values.join(
+                      ', ',
+                    )}`,
+                  );
+                }
+              }
+            }
+          } else if (customProp.value_type === 'string') {
+            if (Array.isArray(customProp.default_value)) {
+              throw new Error(
+                `Custom property "${customProp.property_name}" has type "string" but default_value is an array. string type default_value must be a string.`,
+              );
+            }
+          }
+        }
+      }
+
+      for (const repo of orgConfig.repositories) {
+        for (const customProp of orgConfig.customProperties) {
+          if (
+            customProp.required &&
+            (!repo.properties || !repo.properties.hasOwnProperty(customProp.property_name))
+          ) {
+            throw new Error(
+              `Repository "${repo.name}" in "${orgConfig.organization}" is missing required property "${customProp.property_name}"`,
+            );
+          }
+
+          const propValue = repo.properties?.[customProp.property_name];
+
+          if (!propValue) continue;
+
+          if (customProp.value_type === 'single_select') {
+            const value = propValue;
+            if (Array.isArray(value)) {
+              throw new Error(
+                `Invalid value ${JSON.stringify(value)} for property "${
+                  customProp.property_name
+                }" on repository "${
+                  repo.name
+                }", found an array, expected a single value from: ${customProp.allowed_values?.join(
+                  ', ',
+                )}`,
+              );
+            }
+            if (!customProp.allowed_values?.includes(value)) {
+              throw new Error(
+                `Invalid value "${value}" for property "${
+                  customProp.property_name
+                }" on repository "${repo.name}". Allowed values: ${customProp.allowed_values?.join(
+                  ', ',
+                )}`,
+              );
+            }
+          } else if (customProp.value_type === 'multi_select') {
+            const values = propValue;
+            if (!Array.isArray(values)) {
+              throw new Error(
+                `Invalid value ${JSON.stringify(values)} for property "${
+                  customProp.property_name
+                }" on repository "${
+                  repo.name
+                }", found an array, expected an of values from: ${customProp.allowed_values?.join(
+                  ', ',
+                )}`,
+              );
+            }
+            for (const value of values) {
+              if (!customProp.allowed_values?.includes(value)) {
+                throw new Error(
+                  `Invalid value "${value}" for property "${
+                    customProp.property_name
+                  }" on repository "${
+                    repo.name
+                  }". Allowed values: ${customProp.allowed_values?.join(', ')}`,
+                );
+              }
+            }
+          } else if (customProp.value_type === 'string') {
+            if (Array.isArray(propValue)) {
+              throw new Error(
+                `Property "${customProp.property_name}" on repository "${repo.name}" has type "string" but value is an array. Use a single string value instead.`,
+              );
+            }
+          }
+        }
+      }
     }
 
     for (const repo of orgConfig.repositories) {
@@ -407,6 +571,95 @@ async function main() {
     const allTeams = await listAllTeams(config);
 
     const octokit = await getOctokit(config.organization);
+
+    if (config.customProperties && config.customProperties.length > 0) {
+      console.info(chalk.bold('Syncing custom property definitions...'));
+
+      const existingProperties = (
+        await octokit.orgs.getAllCustomProperties({
+          org: config.organization,
+        })
+      ).data;
+
+      for (const customProp of config.customProperties) {
+        const existing = existingProperties.find(
+          (p) => p.property_name === customProp.property_name,
+        );
+
+        const propertyPayload: components['schemas']['custom-property-set-payload'] & {
+          custom_property_name: string;
+        } = {
+          custom_property_name: customProp.property_name,
+          value_type: customProp.value_type,
+          required: customProp.required || false,
+        };
+
+        if (customProp.description) {
+          propertyPayload.description = customProp.description;
+        }
+
+        if (customProp.default_value !== undefined) {
+          propertyPayload.default_value = customProp.default_value;
+        }
+
+        if (
+          customProp.allowed_values &&
+          (customProp.value_type === 'single_select' || customProp.value_type === 'multi_select')
+        ) {
+          propertyPayload.allowed_values = customProp.allowed_values;
+        }
+
+        if (!existing) {
+          console.info(
+            chalk.green('Creating custom property'),
+            chalk.cyan(customProp.property_name),
+            'with type',
+            chalk.cyan(customProp.value_type),
+          );
+
+          if (!IS_DRY_RUN) {
+            await octokit.orgs.createOrUpdateCustomProperty({
+              org: config.organization,
+              ...propertyPayload,
+            });
+          }
+        } else {
+          const needsUpdate =
+            existing.value_type !== customProp.value_type ||
+            existing.required !== (customProp.required || false) ||
+            existing.description !== customProp.description ||
+            !isDeepStrictEqual(existing.default_value, customProp.default_value) ||
+            !isDeepStrictEqual(existing.allowed_values, customProp.allowed_values);
+
+          if (needsUpdate) {
+            console.info(
+              chalk.yellow('Updating custom property'),
+              chalk.cyan(customProp.property_name),
+            );
+
+            if (!IS_DRY_RUN) {
+              await octokit.orgs.createOrUpdateCustomProperty({
+                org: config.organization,
+                ...propertyPayload,
+              });
+            }
+          }
+        }
+      }
+
+      for (const existing of existingProperties) {
+        if (!config.customProperties.some((p) => p.property_name === existing.property_name)) {
+          console.info(chalk.red('Deleting custom property'), chalk.cyan(existing.property_name));
+
+          if (!IS_DRY_RUN) {
+            await octokit.orgs.removeCustomProperty({
+              org: config.organization,
+              custom_property_name: existing.property_name,
+            });
+          }
+        }
+      }
+    }
 
     const allUsers = await listAllOrgMembersAndOwners(config);
     const usersNeedingInvite: string[] = [];
@@ -1372,7 +1625,7 @@ async function checkRepository(
     const mappedProperties = Object.entries(repo.properties)
       .map(([key, value]) => ({
         property_name: key,
-        value: value as string | null,
+        value: Array.isArray(value) ? value : (value as string | null),
       }))
       .sort(sortProps);
     props.data.sort(sortProps);
