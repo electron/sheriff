@@ -1030,16 +1030,18 @@ async function loadRepositoryMetadata(config: OrganizationConfig, repo: Reposito
           })
           .then((all) => {
             return Promise.all(
-              all.map(
-                async (ruleset) =>
-                  (
-                    await octokit.repos.getRepoRuleset({
-                      repo: repo.name,
-                      owner: config.organization,
-                      ruleset_id: ruleset.id,
-                    })
-                  ).data,
-              ),
+              all
+                .filter((ruleset) => ruleset.source_type === 'Repository')
+                .map(
+                  async (ruleset) =>
+                    (
+                      await octokit.repos.getRepoRuleset({
+                        repo: repo.name,
+                        owner: config.organization,
+                        ruleset_id: ruleset.id,
+                      })
+                    ).data,
+                ),
             );
           })
       : Promise.resolve(null),
