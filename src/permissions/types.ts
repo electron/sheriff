@@ -9,6 +9,15 @@ export type BasicRule =
   | 'require_signed_commits'
   | 'restrict_force_push';
 
+export interface CustomProperty {
+  property_name: string;
+  value_type: 'string' | 'single_select' | 'multi_select';
+  required?: boolean;
+  default_value?: string | string[];
+  description?: string;
+  allowed_values?: string[];
+}
+
 export interface Ruleset {
   name: string;
   target: 'branch' | 'tag';
@@ -47,7 +56,7 @@ export interface RepositoryConfig {
   external_collaborators?: Record<string, SheriffAccessLevel>;
   settings?: Partial<RepoSettings>;
   visibility?: 'public' | 'private' | 'current';
-  properties?: Record<string, string>;
+  properties?: Record<string, string | string[]>;
   rulesets?: (Ruleset | string)[];
   heroku?: {
     app_name: string;
@@ -80,6 +89,7 @@ export interface OrganizationConfig {
   teams: TeamConfig[];
   repositories: RepositoryConfig[];
   common_rulesets?: Ruleset[];
+  customProperties?: CustomProperty[];
 }
 
 export type PermissionsConfig = OrganizationConfig | OrganizationConfig[];

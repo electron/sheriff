@@ -6,3 +6,4 @@ lib
 config.yml
 config.yaml
 yarn-error.log
+.claude
