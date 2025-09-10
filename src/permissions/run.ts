@@ -1287,23 +1287,18 @@ async function checkRepository(
     }
   }
 
-  if (computedSettings.forks_need_actions_approval) {
+  if (computedSettings.forks_need_actions_approval && repo.visibility !== 'private') {
     const octokit = await getOctokit(config.organization);
 
     // Check current setting first
-    let currentSetting: { approval_policy: string } | undefined;
-    try {
-      const response = await octokit.request(
-        'GET /repos/{owner}/{repo}/actions/permissions/fork-pr-contributor-approval',
-        {
-          owner: config.organization,
-          repo: repo.name,
-        },
-      );
-      currentSetting = response.data as { approval_policy: string };
-    } catch {
-      // If the endpoint fails, we'll set it anyway
-    }
+    const response = await octokit.request(
+      'GET /repos/{owner}/{repo}/actions/permissions/fork-pr-contributor-approval',
+      {
+        owner: config.organization,
+        repo: repo.name,
+      },
+    );
+    const currentSetting = response.data as { approval_policy: string };
 
     if (currentSetting?.approval_policy !== 'all_external_contributors') {
       builder.addContext(
