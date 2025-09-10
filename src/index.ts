@@ -19,7 +19,6 @@ import {
 } from './MessageBuilder.js';
 import { getOctokit } from './octokit.js';
 import {
-  AUTO_TUNNEL_NGROK,
   GITHUB_WEBHOOK_SECRET,
   PERMISSIONS_FILE_ORG,
   PERMISSIONS_FILE_REPO,
@@ -531,14 +530,6 @@ app.use(
 const server = app.listen(PORT, async () => {
   const port = (server.address() as AddressInfo).port;
   console.log('Electron Sheriff Listening:', `http://127.0.0.1:${port}`);
-  if (AUTO_TUNNEL_NGROK) {
-    const ngrok = require('ngrok');
-    const url = await ngrok.connect({
-      subdomain: AUTO_TUNNEL_NGROK,
-      port,
-    });
-    console.log('Ngrok Tunnel Active:', url);
-  }
   process.on('SIGINT', () => {
     console.log('\nSIGINT detected, retiring the sheriff...');
     server.close(() => {

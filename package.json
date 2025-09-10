@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "dev": "cross-env AUTO_TUNNEL_NGROK=e-sheriff yarn start",
+    "dev": "yarn start",
     "lint": "prettier --check \"src/**/*.{ts,tsx}\"",
     "lint-staged": "lint-staged",
     "prepare": "husky install",
@@ -49,7 +49,6 @@
     "cross-env": "^5.2.0",
     "husky": "^8.0.0",
     "lint-staged": "^12.4.1",
-    "ngrok": "^4.3.3",
     "prettier": "^2.7.1",
     "typescript": "^5.5.0"
   },
@@ -57,5 +56,6 @@
     "src/**/*.{ts,tsx}": [
       "prettier --write"
     ]
-  }
+  },
+  "packageManager": "yarn@4.9.4+sha512.7b1cb0b62abba6a537b3a2ce00811a843bea02bcf53138581a6ae5b1bf563f734872bd47de49ce32a9ca9dcaff995aa789577ffb16811da7c603dcf69e73750b"
 }
