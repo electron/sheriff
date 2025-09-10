@@ -25,6 +25,7 @@
     "@slack/webhook": "^7.0.0",
     "ansi-to-svg": "^1.4.3",
     "chalk": "^5.3.0",
+    "dotenv": "^17.2.2",
     "dotenv-safe": "^6.1.0",
     "express": "^4.20.0",
     "fs-extra": "^8.0.1",
@@ -38,8 +39,8 @@
   },
   "devDependencies": {
     "@octokit/openapi-types": "^24.0.0",
-    "@types/dotenv": "^8.2.0",
-    "@types/dotenv-safe": "^8.1.6",
+    "@types/dotenv": "^8.2.3",
+    "@types/dotenv-safe": "^9.1.0",
     "@types/express": "^4.17.0",
     "@types/fs-extra": "^7.0.0",
     "@types/heroku-client": "^3.1.3",
