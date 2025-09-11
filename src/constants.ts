@@ -11,7 +11,6 @@ export const PERMISSIONS_FILE_REF = process.env.PERMISSIONS_FILE_REF || 'main';
 
 export const SHERIFF_IMPORTANT_BRANCH = process.env.SHERIFF_IMPORTANT_BRANCH;
 
-export const AUTO_TUNNEL_NGROK = process.env.AUTO_TUNNEL_NGROK;
 export const PORT = process.env.PORT || 8080;
 
 export const SHERIFF_HOST_URL = process.env.SHERIFF_HOST_URL;

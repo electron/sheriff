@@ -1,10 +1,10 @@
 import { components as webhookComponents } from '@octokit/openapi-webhooks-types';
 import { IncomingWebhook, IncomingWebhookSendArguments } from '@slack/webhook';
 import { KnownBlock } from '@slack/types';
-import { AUTO_TUNNEL_NGROK, SHERIFF_HOST_URL, SLACK_WEBHOOK_URL } from './constants.js';
+import { SHERIFF_HOST_URL, SLACK_WEBHOOK_URL } from './constants.js';
 import { SheriffAccessLevel } from './permissions/types.js';
 
-const HOST = AUTO_TUNNEL_NGROK ? `https://${AUTO_TUNNEL_NGROK}.ngrok.io` : SHERIFF_HOST_URL;
+const HOST = SHERIFF_HOST_URL;
 
 const hook = new IncomingWebhook(SLACK_WEBHOOK_URL!);
 
