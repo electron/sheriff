@@ -1,15 +1,15 @@
 # Sheriff: Permissions Bot
 
-<img align="right" src="https://avatars.slack-edge.com/2019-11-21/844347353604_500f5a5483db67de7160_512.png">
+<img height="124" width="124" align="right" src="design/logo.png">
 
 This bot, when deployed as a Heroku app and configured correctly, is capable of controlling permissions
-across GitHub, Slack and GSuite.  It also actively monitors and alerts you to suspicious or unexpected
+across GitHub, Slack, Heroku, and GSuite. It also actively monitors and alerts you to suspicious or unexpected
 activity on GitHub.
 
 ## How It Works
 
 Using a combination of webhooks and a YAML configuration file, Sheriff will automatically control your permissions
-and access controls across GitHub, Slack and GSuite.  (Slack and GSuite plugins are optional and disabled by default).
+and access controls across GitHub, Slack, Heroku, and GSuite.  (Slack and GSuite plugins are optional and disabled by default).
 
 It will post to a designated Slack channel every time it updates any permission setting or any time it detects
 potentially suspect actions including new deploy keys with write access, tag deletion or release branch deletion.
