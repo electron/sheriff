@@ -68,6 +68,18 @@ export class MessageBuilder {
     return this;
   }
 
+  public addOrganizationAndBlame(
+    organization: webhookComponents['schemas']['organization-simple-webhooks'],
+    user: MinimalUserInfo,
+  ) {
+    this.divide();
+    this.addOrganizationContext(organization);
+    this.divide();
+    this.addBlame(user);
+    this.divide();
+    return this;
+  }
+
   public addUser(user: MinimalUserInfo | null, userType: string, extraInfo?: string) {
     if (!user) return this;
 
@@ -98,6 +110,19 @@ export class MessageBuilder {
       createMarkdownBlock(
         `*Repository: <${repo.html_url}|${repo.owner.login}/${repo.name}>*\n${
           repo.description || 'No Description'
+        }`,
+      ),
+    );
+    return this;
+  }
+
+  public addOrganizationContext(
+    organization: webhookComponents['schemas']['organization-simple-webhooks'],
+  ) {
+    this.addBlock(
+      createMarkdownBlock(
+        `*Organization: <${organization.url}|${organization.login}>*\n${
+          organization.description || 'No Description'
         }`,
       ),
     );
