@@ -619,6 +619,9 @@ async function main() {
             'with type',
             chalk.cyan(customProp.value_type),
           );
+          builder.addContext(
+            `:label: Creating custom property \`${customProp.property_name}\` with type \`${customProp.value_type}\``,
+          );
 
           if (!IS_DRY_RUN) {
             await octokit.orgs.createOrUpdateCustomProperty({
@@ -639,6 +642,9 @@ async function main() {
               chalk.yellow('Updating custom property'),
               chalk.cyan(customProp.property_name),
             );
+            builder.addContext(
+              `:label: :pencil2: Updating custom property \`${customProp.property_name}\` with type \`${customProp.value_type}\``,
+            );
 
             if (!IS_DRY_RUN) {
               await octokit.orgs.createOrUpdateCustomProperty({
@@ -653,6 +659,9 @@ async function main() {
       for (const existing of existingProperties) {
         if (!config.customProperties.some((p) => p.property_name === existing.property_name)) {
           console.info(chalk.red('Deleting custom property'), chalk.cyan(existing.property_name));
+          builder.addContext(
+            `:label: :github-cross: Deleting custom property \`${existing.property_name}\` as it is not in config`,
+          );
 
           if (!IS_DRY_RUN) {
             await octokit.orgs.removeCustomProperty({
@@ -1677,6 +1686,11 @@ async function checkRepository(
         chalk.cyan(repo.name),
         'setting to',
         chalk.cyan(JSON.stringify(repo.properties, null, 2)),
+      );
+      builder.addContext(
+        `:label: :synchronize: Syncing properties for repo \`${
+          repo.name
+        }\` values \`${mappedProperties.map((p) => `${p.property_name}=${p.value}`).join(', ')}\``,
       );
 
       if (!IS_DRY_RUN) {
