@@ -517,6 +517,46 @@ webhooks.on(
   }),
 );
 
+webhooks.on(
+  'repository_ruleset.edited',
+  hook(async (event) => {
+    if (event.payload.sender.login === SHERIFF_SELF_LOGIN) return;
+
+    const text = 'A ruleset was just edited';
+    let msg = MessageBuilder.create()
+      .setEventPayload(event)
+      .setNotificationContent(text)
+      .addBlock(createMessageBlock(text))
+      .addBlock(createMarkdownBlock(`*Name*: ${event.payload.repository_ruleset.name}\n`));
+    if (event.payload.repository) {
+      msg = msg.addRepositoryAndBlame(event.payload.repository, event.payload.sender);
+    } else if (event.payload.organization) {
+      msg = msg.addOrganizationAndBlame(event.payload.organization, event.payload.sender);
+    }
+    await msg.addSeverity('warning').send();
+  }),
+);
+
+webhooks.on(
+  'repository_ruleset.deleted',
+  hook(async (event) => {
+    if (event.payload.sender.login === SHERIFF_SELF_LOGIN) return;
+
+    const text = 'A ruleset was just deleted';
+    let msg = MessageBuilder.create()
+      .setEventPayload(event)
+      .setNotificationContent(text)
+      .addBlock(createMessageBlock(text))
+      .addBlock(createMarkdownBlock(`*Name*: ${event.payload.repository_ruleset.name}\n`));
+    if (event.payload.repository) {
+      msg = msg.addRepositoryAndBlame(event.payload.repository, event.payload.sender);
+    } else if (event.payload.organization) {
+      msg = msg.addOrganizationAndBlame(event.payload.organization, event.payload.sender);
+    }
+    await msg.addSeverity('critical').send();
+  }),
+);
+
 const app = express();
 
 app.use('/static', express.static(path.resolve(import.meta.dirname, '../static')));
