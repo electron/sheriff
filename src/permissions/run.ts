@@ -409,7 +409,8 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
         for (const customProp of orgConfig.customProperties) {
           if (
             customProp.required &&
-            (!repo.properties || !repo.properties.hasOwnProperty(customProp.property_name))
+            (!repo.properties || !repo.properties.hasOwnProperty(customProp.property_name)) &&
+            !customProp.default_value
           ) {
             throw new Error(
               `Repository "${repo.name}" in "${orgConfig.organization}" is missing required property "${customProp.property_name}"`,
