@@ -67,6 +67,7 @@ export interface RepositoryConfig {
 
 export interface RepoSettings {
   has_wiki: boolean;
+  forks_need_actions_approval?: boolean;
 }
 
 export interface TeamConfig {

@@ -185,6 +185,7 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
         organization: Joi.string().min(1).required(),
         repository_defaults: Joi.object({
           has_wiki: Joi.boolean().required(),
+          forks_need_actions_approval: Joi.boolean().optional(),
         }).required(),
         teams: Joi.array()
           .items({
@@ -217,6 +218,7 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
               .optional(),
             settings: Joi.object({
               has_wiki: Joi.boolean(),
+              forks_need_actions_approval: Joi.boolean().optional(),
             }).optional(),
             visibility: Joi.string().valid('public', 'private').optional(),
             properties: Joi.object()
@@ -927,7 +929,7 @@ const listAllOrgRepos = memoize(
 );
 
 const computeRepoSettings = (config: OrganizationConfig, repo: RepositoryConfig): RepoSettings => {
-  const keyOrDefault = (key: keyof RepoSettings) => {
+  const keyOrDefault = <K extends keyof RepoSettings>(key: K): RepoSettings[K] => {
     if (!repo.settings) return config.repository_defaults[key];
     if (typeof repo.settings[key] === 'undefined') return config.repository_defaults[key];
     return repo.settings[key]!;
@@ -935,6 +937,7 @@ const computeRepoSettings = (config: OrganizationConfig, repo: RepositoryConfig)
 
   return {
     has_wiki: keyOrDefault('has_wiki'),
+    forks_need_actions_approval: keyOrDefault('forks_need_actions_approval'),
   };
 };
 
@@ -1283,16 +1286,18 @@ async function loadRepositoryMetadata(config: OrganizationConfig, repo: Reposito
           })
           .then((all) => {
             return Promise.all(
-              all.map(
-                async (ruleset) =>
-                  (
-                    await octokit.repos.getRepoRuleset({
-                      repo: repo.name,
-                      owner: config.organization,
-                      ruleset_id: ruleset.id,
-                    })
-                  ).data,
-              ),
+              all
+                .filter((ruleset) => ruleset.source_type === 'Repository')
+                .map(
+                  async (ruleset) =>
+                    (
+                      await octokit.repos.getRepoRuleset({
+                        repo: repo.name,
+                        owner: config.organization,
+                        ruleset_id: ruleset.id,
+                      })
+                    ).data,
+                ),
             );
           })
       : Promise.resolve(null),
@@ -1532,6 +1537,42 @@ async function checkRepository(
         repo: octoRepo.name,
         has_wiki: computedSettings.has_wiki,
       });
+    }
+  }
+
+  if (computedSettings.forks_need_actions_approval && repo.visibility !== 'private') {
+    const octokit = await getOctokit(config.organization);
+
+    // Check current setting first
+    const response = await octokit.request(
+      'GET /repos/{owner}/{repo}/actions/permissions/fork-pr-contributor-approval',
+      {
+        owner: config.organization,
+        repo: repo.name,
+      },
+    );
+    const currentSetting = response.data as { approval_policy: string };
+
+    if (currentSetting?.approval_policy !== 'all_external_contributors') {
+      builder.addContext(
+        `:lock: Setting fork PR contributor approval to require all external contributors for \`${repo.name}\``,
+      );
+      console.info(
+        chalk.yellow(
+          'Setting fork PR contributor approval to require all external contributors for',
+        ),
+        chalk.cyan(repo.name),
+      );
+      if (!IS_DRY_RUN) {
+        await octokit.request(
+          'PUT /repos/{owner}/{repo}/actions/permissions/fork-pr-contributor-approval',
+          {
+            owner: config.organization,
+            repo: repo.name,
+            approval_policy: 'all_external_contributors',
+          },
+        );
+      }
     }
   }
 

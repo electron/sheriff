@@ -6,4 +6,5 @@ lib
 config.yml
 config.yaml
 yarn-error.log
+.yarn/install-state.gz
 .claude
