@@ -1673,12 +1673,23 @@ async function checkRepository(
 
     const sortProps = (a: { property_name: string }, b: { property_name: string }) =>
       a.property_name.localeCompare(b.property_name);
-    const mappedProperties = Object.entries(repo.properties)
-      .map(([key, value]) => ({
-        property_name: key,
-        value: Array.isArray(value) ? value : (value as string | null),
-      }))
-      .sort(sortProps);
+    const mappedProperties = Object.entries(repo.properties).map(([key, value]) => ({
+      property_name: key,
+      value: Array.isArray(value) ? value : (value as string | null),
+    }));
+    for (const orgProp of config.customProperties || []) {
+      if (
+        orgProp.default_value &&
+        !mappedProperties.some((m) => m.property_name === orgProp.property_name)
+      ) {
+        // If we have an org prop with a default value but not explicitly defined just augment it to account for the default when diffing
+        mappedProperties.push({
+          property_name: orgProp.property_name,
+          value: orgProp.default_value,
+        });
+      }
+    }
+    mappedProperties.sort(sortProps);
     props.data.sort(sortProps);
     if (JSON.stringify(props.data) !== JSON.stringify(mappedProperties)) {
       console.info(
