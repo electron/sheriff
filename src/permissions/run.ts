@@ -19,6 +19,7 @@ import {
 } from '../constants.js';
 import {
   OrganizationConfig,
+  OrgRuleset,
   PermissionsConfig,
   RepoSettings,
   RepositoryConfig,
@@ -28,7 +29,11 @@ import {
 } from './types.js';
 import { gitHubPermissionsToSheriffLevel, sheriffLevelToGitHubLevel } from './level-converters.js';
 import { fileURLToPath } from 'url';
-import { getDifferenceWithGithubRuleset, rulesetToGithub } from './ruleset.js';
+import {
+  getDifferenceWithGithubRuleset,
+  repoRulesetToGithub,
+  orgRulesetToGithub,
+} from './ruleset.js';
 import { components } from '@octokit/openapi-types';
 import { isDeepStrictEqual } from 'util';
 
@@ -70,7 +75,7 @@ const loadCurrentConfig = async () => {
 };
 
 const validateConfigFast = async (config: PermissionsConfig): Promise<OrganizationConfig[]> => {
-  const orgConfigs = Array.isArray(config) ? config : [config];
+  let orgConfigs = Array.isArray(config) ? config : [config];
   for (const orgConfig of orgConfigs) {
     if (!orgConfig || typeof orgConfig !== 'object' || !orgConfig.teams) continue;
 
@@ -178,87 +183,90 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
       .optional(),
   });
 
-  // Ensure the object looks right
-  const schema = Joi.array()
-    .items(
+  const rulesetPropertyTargetValidator = Joi.object({
+    name: Joi.string().min(1).required(),
+    values: Joi.array().items(Joi.string().min(1)).min(1).required(),
+  });
+  const orgRulesetValidator = rulesetValidator.keys({
+    repositories: Joi.alternatives(
       Joi.object({
-        organization: Joi.string().min(1).required(),
-        repository_defaults: Joi.object({
-          has_wiki: Joi.boolean().required(),
-          forks_need_actions_approval: Joi.boolean().optional(),
-        }).required(),
-        teams: Joi.array()
-          .items({
-            name: Joi.string().min(1).required(),
-            displayName: Joi.string().min(1).optional(),
-            parent: Joi.string().min(1).optional(),
-            secret: Joi.bool().optional(),
-            members: Joi.array().items(Joi.string().min(1)).min(0).required(),
-            maintainers: Joi.array().items(Joi.string().min(1)).min(1).required(),
-            gsuite: Joi.object({
-              privacy: Joi.string().valid('internal', 'external').required(),
-            }).optional(),
-            slack: Joi.string().min(1).allow(true).allow(false).optional(),
-          })
-          .required(),
-        repositories: Joi.array()
-          .items({
-            name: Joi.string().min(1).required(),
-            teams: Joi.object()
-              .pattern(
-                Joi.string(),
-                Joi.string().valid('read', 'triage', 'write', 'maintain', 'admin'),
-              )
-              .optional(),
-            external_collaborators: Joi.object()
-              .pattern(
-                Joi.string().min(1),
-                Joi.string().valid('read', 'triage', 'write', 'maintain', 'admin'),
-              )
-              .optional(),
-            settings: Joi.object({
-              has_wiki: Joi.boolean(),
-              forks_need_actions_approval: Joi.boolean().optional(),
-            }).optional(),
-            visibility: Joi.string().valid('public', 'private').optional(),
-            properties: Joi.object()
-              .pattern(
-                Joi.string(),
-                Joi.alternatives(Joi.string(), Joi.array().items(Joi.string())),
-              )
-              .optional(),
-            heroku: Joi.object({
-              app_name: Joi.string().min(1).required(),
-              team_name: Joi.string().min(1).required(),
-              access: Joi.array().items(Joi.string().min(1)).optional(),
-            }).optional(),
-            rulesets: Joi.array()
-              .items(Joi.alternatives(Joi.string().min(1), rulesetValidator))
-              .min(1)
-              .optional(),
-          })
-          .required(),
-        common_rulesets: Joi.array().items(rulesetValidator).min(1).optional(),
-        customProperties: Joi.array()
-          .items(
-            Joi.object({
-              property_name: Joi.string().min(1).required(),
-              value_type: Joi.string().valid('string', 'single_select', 'multi_select').required(),
-              required: Joi.boolean().optional(),
-              default_value: Joi.alternatives(
-                Joi.string(),
-                Joi.array().items(Joi.string()),
-              ).optional(),
-              description: Joi.string().optional(),
-              allowed_values: Joi.array().items(Joi.string().min(1)).optional(),
-            }),
+        target_by: Joi.string().valid('properties'),
+        include: Joi.array().items(rulesetPropertyTargetValidator).optional(),
+        exclude: Joi.array().items(rulesetPropertyTargetValidator).optional(),
+      }),
+      Joi.object({
+        target_by: Joi.string().valid('name'),
+        include: Joi.array().items(Joi.string().min(1)).optional(),
+        exclude: Joi.array().items(Joi.string().min(1)).optional(),
+      }),
+    ),
+  });
+
+  // Ensure the object looks right
+  const orgSchema = Joi.object({
+    organization: Joi.string().min(1).required(),
+    repository_defaults: Joi.object({
+      has_wiki: Joi.boolean().required(),
+      forks_need_actions_approval: Joi.boolean().optional(),
+    }).required(),
+    teams: Joi.array()
+      .items({
+        name: Joi.string().min(1).required(),
+        displayName: Joi.string().min(1).optional(),
+        parent: Joi.string().min(1).optional(),
+        secret: Joi.bool().optional(),
+        members: Joi.array().items(Joi.string().min(1)).min(0).required(),
+        maintainers: Joi.array().items(Joi.string().min(1)).min(1).required(),
+        gsuite: Joi.object({
+          privacy: Joi.string().valid('internal', 'external').required(),
+        }).optional(),
+        slack: Joi.string().min(1).allow(true).allow(false).optional(),
+      })
+      .required(),
+    repositories: Joi.array()
+      .items({
+        name: Joi.string().min(1).required(),
+        teams: Joi.object()
+          .pattern(Joi.string(), Joi.string().valid('read', 'triage', 'write', 'maintain', 'admin'))
+          .optional(),
+        external_collaborators: Joi.object()
+          .pattern(
+            Joi.string().min(1),
+            Joi.string().valid('read', 'triage', 'write', 'maintain', 'admin'),
           )
           .optional(),
-      }),
-    )
-    .min(1)
-    .required();
-  await schema.validateAsync(orgConfigs);
+        settings: Joi.object({
+          has_wiki: Joi.boolean(),
+          forks_need_actions_approval: Joi.boolean().optional(),
+        }).optional(),
+        visibility: Joi.string().valid('public', 'private').optional(),
+        properties: Joi.object()
+          .pattern(Joi.string(), Joi.alternatives(Joi.string(), Joi.array().items(Joi.string())))
+          .optional(),
+        heroku: Joi.object({
+          app_name: Joi.string().min(1).required(),
+          team_name: Joi.string().min(1).required(),
+          access: Joi.array().items(Joi.string().min(1)).optional(),
+        }).optional(),
+        rulesets: Joi.array().items(rulesetValidator).min(1).optional(),
+      })
+      .required(),
+    rulesets: Joi.array().items(orgRulesetValidator).min(1).optional(),
+    customProperties: Joi.array()
+      .items(
+        Joi.object({
+          property_name: Joi.string().min(1).required(),
+          value_type: Joi.string().valid('string', 'single_select', 'multi_select').required(),
+          required: Joi.boolean().optional(),
+          default_value: Joi.alternatives(Joi.string(), Joi.array().items(Joi.string())).optional(),
+          description: Joi.string().optional(),
+          allowed_values: Joi.array().items(Joi.string().min(1)).optional(),
+        }),
+      )
+      .optional(),
+  });
+  const multipleOrgSchema = Joi.array().items(orgSchema).min(1).required();
+  await multipleOrgSchema.validateAsync(orgConfigs);
 
   for (const orgConfig of orgConfigs) {
     for (const team of orgConfig.teams) {
@@ -499,28 +507,13 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
       }
 
       if (repo.rulesets) {
-        const newRulesets = repo.rulesets.map((ruleset) => {
-          if (typeof ruleset === 'string') {
-            const mappedRuleset = orgConfig.common_rulesets?.find(
-              (common) => common.name === ruleset,
-            );
-            if (!mappedRuleset) {
-              throw new Error(
-                `Ruleset "${ruleset}" assigned to repo "${repo.name}" does not exist in the "common_rulesets" config for "${orgConfig.organization}"`,
-              );
-            }
-            return mappedRuleset;
-          }
-          return ruleset;
-        });
-
-        if (newRulesets.length !== new Set(newRulesets.map((r) => r.name)).size) {
+        if (repo.rulesets.length !== new Set(repo.rulesets.map((r) => r.name)).size) {
           throw new Error(
             `Rulesets for repo "${repo.name}" have a duplicate name, names of rulesets must be unique for a given repo`,
           );
         }
 
-        for (const ruleset of newRulesets) {
+        for (const ruleset of repo.rulesets) {
           if (ruleset.bypass && !ruleset.bypass.apps && !ruleset.bypass.teams) {
             throw new Error(
               `Ruleset "${ruleset.name}" for repo "${repo.name}" has bypass set but no teams or apps, either remove the bypass setting or provide a apps or teams block`,
@@ -545,8 +538,83 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
             }
           }
         }
+      }
+    }
 
-        repo.rulesets = newRulesets;
+    if (orgConfig.rulesets) {
+      if (orgConfig.rulesets.length !== new Set(orgConfig.rulesets.map((r) => r.name)).size) {
+        throw new Error(
+          `Rulesets for org "${orgConfig.organization}" have a duplicate name, names of rulesets must be unique for a given org`,
+        );
+      }
+
+      for (const ruleset of orgConfig.rulesets) {
+        if (ruleset.bypass && !ruleset.bypass.apps && !ruleset.bypass.teams) {
+          throw new Error(
+            `Ruleset "${ruleset.name}" for org "${orgConfig.organization}" has bypass set but no teams or apps, either remove the bypass setting or provide a apps or teams block`,
+          );
+        }
+
+        if (ruleset.bypass?.teams) {
+          for (const team of ruleset.bypass?.teams) {
+            if (!orgConfig.teams.some((t) => t.name === team)) {
+              throw new Error(
+                `Ruleset "${ruleset.name}" for org "${orgConfig.organization}" has bypass team "${team}" but that team does not appear to exist, create it in this config first`,
+              );
+            }
+          }
+        }
+
+        if (ruleset.rules) {
+          if (ruleset.rules.length !== new Set(ruleset.rules).size) {
+            throw new Error(
+              `Ruleset "${ruleset.name}" for org "${orgConfig.organization}" has duplicate rule configured, please remove the duplicate rule in the rules block`,
+            );
+          }
+        }
+
+        if (ruleset.repositories) {
+          ruleset.repositories.exclude = ruleset.repositories.exclude || [];
+          ruleset.repositories.include = ruleset.repositories.include || [];
+          if (ruleset.repositories.exclude.length + ruleset.repositories.include.length === 0) {
+            throw new Error(
+              `Ruleset "${ruleset.name}" for org "${orgConfig.organization}" has no include or exclude conditions configured, please ensure one condition is configured in the "repositories" block`,
+            );
+          }
+        }
+
+        if (ruleset.repositories.target_by === 'name') {
+          for (const repoName of ruleset.repositories.include) {
+            if (!orgConfig.repositories.some((r) => r.name === repoName)) {
+              throw new Error(
+                `Ruleset "${ruleset.name}" for org "${orgConfig.organization}" references a repo "${repoName}" in it's include conditions that does not exist`,
+              );
+            }
+          }
+          for (const repoName of ruleset.repositories.exclude) {
+            if (!orgConfig.repositories.some((r) => r.name === repoName)) {
+              throw new Error(
+                `Ruleset "${ruleset.name}" for org "${orgConfig.organization}" references a repo "${repoName}" in it's exclude conditions that does not exist`,
+              );
+            }
+          }
+        }
+        if (ruleset.repositories.target_by === 'properties') {
+          for (const cond of ruleset.repositories.include) {
+            if (!orgConfig.customProperties?.some((prop) => prop.property_name === cond.name)) {
+              throw new Error(
+                `Ruleset "${ruleset.name}" for org "${orgConfig.organization}" references a property "${cond.name}" in it's include conditions that does not exist`,
+              );
+            }
+          }
+          for (const cond of ruleset.repositories.exclude) {
+            if (!orgConfig.customProperties?.some((prop) => prop.property_name === cond.name)) {
+              throw new Error(
+                `Ruleset "${ruleset.name}" for org "${orgConfig.organization}" references a property "${cond.name}" in it's exclude conditions that does not exist`,
+              );
+            }
+          }
+        }
       }
     }
   }
@@ -854,6 +922,106 @@ async function main() {
 
       for (const plugin of plugins) {
         await plugin.handleRepo?.(repo, config.teams, builder);
+      }
+    }
+
+    if (config.rulesets) {
+      const octokit = await getOctokit(config.organization);
+      const currentOrgRulesets = (await octokit.repos.getOrgRulesets({ org: config.organization }))
+        .data;
+      const expectedRulesets = config.rulesets;
+
+      const rulesetsToAdd: OrgRuleset[] = [];
+
+      // Figure out which rulesets we do not have at all
+      for (const ruleset of expectedRulesets) {
+        if (!currentOrgRulesets.some((r) => r.name === ruleset.name)) {
+          rulesetsToAdd.push(ruleset);
+        }
+      }
+
+      for (const ruleset of currentOrgRulesets) {
+        const expectedRuleset = expectedRulesets.find((r) => r.name === ruleset.name);
+        // If we should not have this ruleset, nuke it
+        if (!expectedRuleset) {
+          console.info(
+            chalk.red('Removing Ruleset'),
+            chalk.cyan(ruleset.name),
+            'from organization',
+            chalk.cyan(config.organization),
+            "as it's not in the config",
+          );
+          builder.addContext(
+            `:gavel: :fire: Removing Ruleset \`${ruleset.name}\` from org \`${config.organization}\` as it\'s not in the config`,
+          );
+
+          if (!IS_DRY_RUN) {
+            await octokit.repos.deleteOrgRuleset({
+              org: config.organization,
+              ruleset_id: ruleset.id,
+            });
+          }
+          continue;
+        }
+
+        // If we should have this ruleset, let's make sure the settings are the same
+        // to do that we generate the theoretical github ruleset blob and just
+        // compare them deeply. We need this to add them anyway, so let's generate it
+        // in a helper to de-dupe this logic.
+        const allTeams = await listAllTeams(config);
+        const githubFormattedRuleset = orgRulesetToGithub(expectedRuleset, allTeams);
+        const difference = getDifferenceWithGithubRuleset(githubFormattedRuleset, ruleset, true);
+        if (difference) {
+          builder.addContext(
+            `:gavel: :arrows_clockwise: Updating Ruleset \`${ruleset.name}\` in org \`${config.organization}\` as we\'ve detected changes\n\n\`\`\`\n${difference}\n\`\`\`\n`,
+          );
+          console.info(
+            chalk.yellow('Updating Ruleset'),
+            chalk.cyan(ruleset.name),
+            'in org',
+            chalk.cyan(config.organization),
+            "as we've detected changes",
+          );
+          console.info(getDifferenceWithGithubRuleset(githubFormattedRuleset, ruleset, false));
+
+          if (!IS_DRY_RUN) {
+            await octokit.repos.updateOrgRuleset({
+              org: config.organization,
+              ruleset_id: ruleset.id,
+              ...githubFormattedRuleset,
+            });
+          }
+        }
+      }
+
+      for (const ruleset of rulesetsToAdd) {
+        const allTeams = await listAllTeams(config);
+        const githubFormattedRuleset = orgRulesetToGithub(ruleset, allTeams);
+
+        builder.addContext(
+          `:gavel: :new: Creating Ruleset \`${ruleset.name}\` in org \`${
+            config.organization
+          }\` as it does not exist\n\n\`\`\`\n${getDifferenceWithGithubRuleset(
+            githubFormattedRuleset,
+            null,
+            true,
+          )}\n\`\`\`\n`,
+        );
+        console.info(
+          chalk.green('Creating Ruleset'),
+          chalk.cyan(ruleset.name),
+          'in org',
+          chalk.cyan(config.organization),
+          'as it does not exist',
+        );
+        console.info(getDifferenceWithGithubRuleset(githubFormattedRuleset, null, false));
+
+        if (!IS_DRY_RUN) {
+          await octokit.repos.createOrgRuleset({
+            org: config.organization,
+            ...githubFormattedRuleset,
+          });
+        }
       }
     }
 
@@ -1715,7 +1883,7 @@ async function checkRepository(
   }
 
   if (repo.rulesets && currentRulesets) {
-    const expectedRulesets = repo.rulesets as Ruleset[];
+    const expectedRulesets = repo.rulesets;
     const octokit = await getOctokit(config.organization);
 
     const rulesetsToAdd: Ruleset[] = [];
@@ -1757,7 +1925,7 @@ async function checkRepository(
       // compare them deeply. We need this to add them anyway, so let's generate it
       // in a helper to de-dupe this logic.
       const allTeams = await listAllTeams(config);
-      const githubFormattedRuleset = rulesetToGithub(expectedRuleset, allTeams);
+      const githubFormattedRuleset = repoRulesetToGithub(expectedRuleset, allTeams);
       const difference = getDifferenceWithGithubRuleset(githubFormattedRuleset, ruleset, true);
       if (difference) {
         builder.addContext(
@@ -1785,7 +1953,7 @@ async function checkRepository(
 
     for (const ruleset of rulesetsToAdd) {
       const allTeams = await listAllTeams(config);
-      const githubFormattedRuleset = rulesetToGithub(ruleset, allTeams);
+      const githubFormattedRuleset = repoRulesetToGithub(ruleset, allTeams);
 
       builder.addContext(
         `:gavel: :new: Creating Ruleset \`${ruleset.name}\` in repo \`${

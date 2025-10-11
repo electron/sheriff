@@ -1,10 +1,31 @@
 import type { components as OctokitTypes } from '@octokit/openapi-types';
 import { diff } from 'jest-diff';
 
-import { Ruleset } from './types.js';
+import { OrgRuleset, Ruleset } from './types.js';
 
-export function rulesetToGithub(ruleset: Ruleset, allTeams: { id: number; name: string }[]) {
-  const generatedRules: OctokitTypes['schemas']['repository-rule'][] = [];
+type GeneratedRules =
+  | OctokitTypes['schemas']['repository-rule-creation']
+  | OctokitTypes['schemas']['repository-rule-update']
+  | OctokitTypes['schemas']['repository-rule-deletion']
+  | OctokitTypes['schemas']['repository-rule-required-linear-history']
+  | OctokitTypes['schemas']['repository-rule-required-deployments']
+  | OctokitTypes['schemas']['repository-rule-required-signatures']
+  | OctokitTypes['schemas']['repository-rule-pull-request']
+  | OctokitTypes['schemas']['repository-rule-required-status-checks']
+  | OctokitTypes['schemas']['repository-rule-non-fast-forward']
+  | OctokitTypes['schemas']['repository-rule-commit-message-pattern']
+  | OctokitTypes['schemas']['repository-rule-commit-author-email-pattern']
+  | OctokitTypes['schemas']['repository-rule-committer-email-pattern']
+  | OctokitTypes['schemas']['repository-rule-branch-name-pattern']
+  | OctokitTypes['schemas']['repository-rule-tag-name-pattern']
+  | OctokitTypes['schemas']['repository-rule-file-path-restriction']
+  | OctokitTypes['schemas']['repository-rule-max-file-path-length']
+  | OctokitTypes['schemas']['repository-rule-file-extension-restriction']
+  | OctokitTypes['schemas']['repository-rule-max-file-size']
+  | OctokitTypes['schemas']['repository-rule-workflows'];
+
+export function repoRulesetToGithub(ruleset: Ruleset, allTeams: { id: number; name: string }[]) {
+  const generatedRules: GeneratedRules[] = [];
   if (ruleset.rules) {
     for (const basicRule of ruleset.rules) {
       switch (basicRule) {
@@ -98,6 +119,42 @@ export function rulesetToGithub(ruleset: Ruleset, allTeams: { id: number; name: 
   } as const;
 }
 
+export function orgRulesetToGithub(ruleset: OrgRuleset, allTeams: { id: number; name: string }[]) {
+  const base = repoRulesetToGithub(ruleset, allTeams);
+
+  if (ruleset.repositories.target_by === 'properties') {
+    return {
+      ...base,
+      conditions: {
+        ...base.conditions,
+        repository_property: {
+          include: ruleset.repositories.include.map((r) => ({
+            name: r.name,
+            property_values: r.values,
+            source: 'custom' as const,
+          })),
+          exclude: ruleset.repositories.exclude.map((r) => ({
+            name: r.name,
+            property_values: r.values,
+            source: 'custom' as const,
+          })),
+        },
+      },
+    } as const;
+  }
+
+  return {
+    ...base,
+    conditions: {
+      ...base.conditions,
+      repository_name: {
+        include: ruleset.repositories.include,
+        exclude: ruleset.repositories.exclude,
+      },
+    },
+  } as const;
+}
+
 type BypassActor = Required<OctokitTypes['schemas']['repository-ruleset']>['bypass_actors'][0];
 function sortBypassActors(a: BypassActor, b: BypassActor): number {
   if (a.actor_type === b.actor_type) {
@@ -107,14 +164,16 @@ function sortBypassActors(a: BypassActor, b: BypassActor): number {
 }
 
 export function getDifferenceWithGithubRuleset(
-  ruleset: ReturnType<typeof rulesetToGithub>,
+  ruleset: ReturnType<typeof repoRulesetToGithub> | ReturnType<typeof orgRulesetToGithub>,
   githubRuleset: OctokitTypes['schemas']['repository-ruleset'] | null,
   stripAnsi: boolean,
 ) {
   const _clonedGithubRuleset: OctokitTypes['schemas']['repository-ruleset'] = githubRuleset
     ? JSON.parse(JSON.stringify(githubRuleset))
     : githubRuleset;
-  const clonedGitHubRuleset: ReturnType<typeof rulesetToGithub> = githubRuleset
+  const clonedGitHubRuleset:
+    | ReturnType<typeof repoRulesetToGithub>
+    | ReturnType<typeof orgRulesetToGithub> = githubRuleset
     ? {
         name: _clonedGithubRuleset.name,
         target: _clonedGithubRuleset.target as any,

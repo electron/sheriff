@@ -44,6 +44,23 @@ export interface Ruleset {
     app_id: number;
   }[];
 }
+export interface OrgRuleset extends Ruleset {
+  repositories: RepositoryPropertyTarget | RepositoryTarget;
+}
+export interface RepositoryPropertyTarget {
+  target_by: 'properties';
+  include: PropertyCondition[];
+  exclude: PropertyCondition[];
+}
+export interface PropertyCondition {
+  name: string;
+  values: string[];
+}
+export interface RepositoryTarget {
+  target_by: 'name';
+  include: string[];
+  exclude: string[];
+}
 export interface RepositoryConfig {
   name: string;
   /**
@@ -57,7 +74,7 @@ export interface RepositoryConfig {
   settings?: Partial<RepoSettings>;
   visibility?: 'public' | 'private' | 'current';
   properties?: Record<string, string | string[]>;
-  rulesets?: (Ruleset | string)[];
+  rulesets?: Ruleset[];
   heroku?: {
     app_name: string;
     team_name: string;
@@ -88,7 +105,7 @@ export interface OrganizationConfig {
   repository_defaults: RepoSettings;
   teams: TeamConfig[];
   repositories: RepositoryConfig[];
-  common_rulesets?: Ruleset[];
+  rulesets?: OrgRuleset[];
   customProperties?: CustomProperty[];
 }
 

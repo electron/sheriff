@@ -19,7 +19,7 @@
   "dependencies": {
     "@electron/github-app-auth": "^3.0.0",
     "@octokit/graphql": "^5.0.6",
-    "@octokit/rest": "^21.1.1",
+    "@octokit/rest": "^22.0.0",
     "@octokit/webhooks": "^13.8.2",
     "@slack/web-api": "^6.8.0",
     "@slack/webhook": "^7.0.0",
@@ -38,7 +38,7 @@
     "queue": "^6.0.2"
   },
   "devDependencies": {
-    "@octokit/openapi-types": "^24.0.0",
+    "@octokit/openapi-types": "^26.0.0",
     "@types/dotenv": "^8.2.3",
     "@types/dotenv-safe": "^9.1.0",
     "@types/express": "^4.17.0",
@@ -58,5 +58,5 @@
       "prettier --write"
     ]
   },
-  "packageManager": "yarn@4.9.4+sha512.7b1cb0b62abba6a537b3a2ce00811a843bea02bcf53138581a6ae5b1bf563f734872bd47de49ce32a9ca9dcaff995aa789577ffb16811da7c603dcf69e73750b"
+  "packageManager": "yarn@4.10.3+sha512.c38cafb5c7bb273f3926d04e55e1d8c9dfa7d9c3ea1f36a4868fa028b9e5f72298f0b7f401ad5eb921749eb012eb1c3bb74bf7503df3ee43fd600d14a018266f"
 }
