@@ -557,6 +557,127 @@ webhooks.on(
   }),
 );
 
+webhooks.on(
+  'custom_property_values',
+  hook(async (event) => {
+    if (event.payload.sender?.login === SHERIFF_SELF_LOGIN) return;
+
+    const repo = event.payload.repository;
+    const newPropertyValues = event.payload.new_property_values || [];
+
+    const allConfigs = await getValidatedConfig();
+    const orgConfig = allConfigs.find((c) => c.organization === repo.owner.login);
+    if (!orgConfig) return;
+
+    const targetRepoConfig = orgConfig.repositories.find((r) => r.name === repo.name);
+    if (!targetRepoConfig || !targetRepoConfig.properties) return;
+
+    // Check if any of the new property values don't match the config
+    const incorrectProperties: Array<{
+      propertyName: string;
+      actualValue: string | string[] | null;
+      expectedValue: string | string[] | null;
+    }> = [];
+
+    const expectedProperties = targetRepoConfig.properties;
+
+    // Account for default values from org-level custom property definitions
+    const expectedPropertiesWithDefaults: Record<string, string | string[]> = {
+      ...expectedProperties,
+    };
+    for (const orgProp of orgConfig.customProperties || []) {
+      if (
+        orgProp.default_value &&
+        !expectedPropertiesWithDefaults.hasOwnProperty(orgProp.property_name)
+      ) {
+        expectedPropertiesWithDefaults[orgProp.property_name] = orgProp.default_value;
+      }
+    }
+
+    for (const newProp of newPropertyValues) {
+      const expectedValue = expectedPropertiesWithDefaults[newProp.property_name];
+
+      const actualValue: string | string[] | null = Array.isArray(newProp.value)
+        ? (newProp.value as string[])
+        : (newProp.value as string | null);
+      const normalizedExpected =
+        expectedValue === null || expectedValue === undefined ? null : expectedValue;
+
+      let valuesMatch = false;
+      if (Array.isArray(actualValue) && Array.isArray(normalizedExpected)) {
+        valuesMatch =
+          actualValue.length === normalizedExpected.length &&
+          actualValue.every((v, i) => v === normalizedExpected[i]);
+      } else {
+        valuesMatch = actualValue === normalizedExpected;
+      }
+
+      if (!valuesMatch) {
+        incorrectProperties.push({
+          propertyName: newProp.property_name,
+          actualValue: actualValue,
+          expectedValue: normalizedExpected,
+        });
+      }
+    }
+
+    if (incorrectProperties.length > 0) {
+      const octokit = await getOctokit(repo.owner.login);
+
+      const correctedProperties = newPropertyValues.map((prop) => {
+        const incorrect = incorrectProperties.find((ip) => ip.propertyName === prop.property_name);
+        if (incorrect) {
+          return {
+            property_name: prop.property_name,
+            value: incorrect.expectedValue,
+          };
+        }
+        const propValue: string | string[] | null = Array.isArray(prop.value)
+          ? (prop.value as string[])
+          : (prop.value as string | null);
+        return {
+          property_name: prop.property_name,
+          value: propValue,
+        };
+      });
+
+      await octokit.orgs.createOrUpdateCustomPropertiesValuesForRepos({
+        org: repo.owner.login,
+        repository_names: [repo.name],
+        properties: correctedProperties,
+      });
+
+      const changesText = incorrectProperties
+        .map(
+          (ip) =>
+            `• \`${ip.propertyName}\`: \`${JSON.stringify(
+              ip.actualValue,
+            )}\` :arrow_right: \`${JSON.stringify(ip.expectedValue)}\``,
+        )
+        .join('\n');
+
+      const text = 'Custom property values were changed to unexpected values';
+      await MessageBuilder.create()
+        .setEventPayload(event)
+        .setNotificationContent(text)
+        .addBlock(createMessageBlock(text))
+        .addBlock(createMarkdownBlock(`*Changes detected:*\n${changesText}`))
+        .addRepositoryAndBlame(event.payload.repository, event.payload.sender!)
+        .addSeverity('critical')
+        .addBlock({
+          type: 'context',
+          elements: [
+            {
+              type: 'mrkdwn',
+              text: ':twisted_rightwards_arrows: *These property values were automatically corrected to match the config*',
+            },
+          ],
+        })
+        .send();
+    }
+  }),
+);
+
 const app = express();
 
 app.use('/static', express.static(path.resolve(import.meta.dirname, '../static')));
