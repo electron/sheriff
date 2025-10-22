@@ -827,7 +827,7 @@ async function main() {
       } else {
         // Even archived repos need to have the plugins run on them
         for (const plugin of plugins) {
-          await plugin.handleRepo?.(repo, config.teams, builder);
+          await plugin.handleRepo?.(repo, config.teams, config.organization, builder);
         }
       }
     }
@@ -853,7 +853,7 @@ async function main() {
       await checkRepository(builder, config, repo);
 
       for (const plugin of plugins) {
-        await plugin.handleRepo?.(repo, config.teams, builder);
+        await plugin.handleRepo?.(repo, config.teams, config.organization, builder);
       }
     }
 
