@@ -1,7 +1,7 @@
 import HerokuClient from 'heroku-client';
 
 import { MessageBuilder } from '../../../MessageBuilder.js';
-import { OrganizationConfig, RepositoryConfig, TeamConfig } from '../../types.js';
+import { RepositoryConfig, TeamConfig } from '../../types.js';
 import { Plugin } from '../Plugin.js';
 import { HEROKU_MAGIC_ADMIN, HEROKU_TOKEN, SHERIFF_GSUITE_DOMAIN } from '../../../constants.js';
 import { IS_DRY_RUN } from '../../../helpers.js';
@@ -32,7 +32,12 @@ class HerokuPlugin implements Plugin {
 
   private emailSame = (e1: string, e2: string) => e1.toLowerCase() === e2.toLowerCase();
 
-  handleRepo = async (repo: RepositoryConfig, teams: TeamConfig[], org: string, builder: MessageBuilder) => {
+  handleRepo = async (
+    repo: RepositoryConfig,
+    teams: TeamConfig[],
+    org: string,
+    builder: MessageBuilder,
+  ) => {
     const { heroku } = repo;
     if (!heroku) return;
 
