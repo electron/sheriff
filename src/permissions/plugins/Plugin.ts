@@ -6,6 +6,7 @@ export interface Plugin {
   handleRepo?: (
     repo: RepositoryConfig,
     teams: TeamConfig[],
+    org: string,
     builder: MessageBuilder,
   ) => Promise<void>;
 }
