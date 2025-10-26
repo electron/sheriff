@@ -2,7 +2,7 @@ export const SHERIFF_GITHUB_APP_CREDS = process.env.SHERIFF_GITHUB_APP_CREDS;
 export const GITHUB_WEBHOOK_SECRET = process.env.GITHUB_WEBHOOK_SECRET || 'development';
 export const SHERIFF_GIST_TOKEN = process.env.SHERIFF_GIST_TOKEN || '';
 export const GITHUB_DEFAULT_BRANCH = 'main';
-export const GITHUB_DEFAULT_ENVIRONMENT = 'npm';
+export const NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT = 'npm';
 
 export const PERMISSIONS_FILE_LOCAL_PATH = process.env.PERMISSIONS_FILE_LOCAL_PATH || '';
 
