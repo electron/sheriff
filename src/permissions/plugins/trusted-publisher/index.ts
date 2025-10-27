@@ -39,7 +39,7 @@ class TrustedPublisherPlugin implements Plugin {
         environment_name: NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT,
       }));
 
-      if (!!IS_DRY_RUN) {
+      if (!IS_DRY_RUN) {
         if (environment && environment.deployment_branch_policy?.custom_branch_policies !== true) {
           await octokit.repos.createOrUpdateEnvironment({
             owner: org,
