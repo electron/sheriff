@@ -31,21 +31,32 @@ class TrustedPublisherPlugin implements Plugin {
   ) => {
     const octokit = await getOctokit(org);
 
-    let environmentExists = false;
+    let environment;
     try {
-      await octokit.repos.getEnvironment({
+      ({ data: environment } = await octokit.repos.getEnvironment({
         owner: org,
         repo: repo.name,
         environment_name: NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT,
-      });
-      environmentExists = true;
+      }));
+
+      if (environment && environment.deployment_branch_policy?.custom_branch_policies !== true) {
+        await octokit.repos.createOrUpdateEnvironment({
+          owner: org,
+          repo: repo.name,
+          environment_name: NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT,
+          deployment_branch_policy: {
+            protected_branches: false,
+            custom_branch_policies: true,
+          },
+        });
+      }
     } catch (error: any) {
       if (error.status !== 404) {
         throw error;
       }
     }
 
-    if (!environmentExists) {
+    if (!environment) {
       builder.addContext(
         `:npm: :security-meow: Creating GitHub environment \`${NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT}\` for repository \`${repo.name}\``,
       );
@@ -61,12 +72,15 @@ class TrustedPublisherPlugin implements Plugin {
           owner: org,
           repo: repo.name,
           environment_name: NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT,
-          deployment_branch_policy: null,
+          deployment_branch_policy: {
+            protected_branches: false,
+            custom_branch_policies: true,
+          },
         });
       }
     }
 
-    if (!IS_DRY_RUN && environmentExists) {
+    if (!IS_DRY_RUN && environment) {
       const { data: policies } = await octokit.repos.listDeploymentBranchPolicies({
         owner: org,
         repo: repo.name,
