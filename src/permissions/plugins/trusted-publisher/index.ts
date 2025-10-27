@@ -89,9 +89,10 @@ class TrustedPublisherPlugin implements Plugin {
         environment_name: NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT,
       });
 
+      const defaultBranch = repo.default_branch || GITHUB_DEFAULT_BRANCH;
       let hasDefaultBranchPolicy = false;
       for (const policy of policies.branch_policies || []) {
-        if (policy.name === GITHUB_DEFAULT_BRANCH) {
+        if (policy.name === defaultBranch) {
           hasDefaultBranchPolicy = true;
         } else {
           console.info(
@@ -113,18 +114,18 @@ class TrustedPublisherPlugin implements Plugin {
           }
 
           builder.addContext(
-            `:wastebasket: Removed non-main branch deployment policy for \`${policy.name}\` from \`${NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT}\` environment in \`${repo.name}\``,
+            `:wastebasket: Removed non-default branch deployment policy for \`${policy.name}\` from \`${NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT}\` environment in \`${repo.name}\``,
           );
         }
       }
-      // Add main branch policy if it doesn't exist
+      // Add default branch policy if it doesn't exist
       if (!hasDefaultBranchPolicy) {
         builder.addContext(
-          `:shield: Adding deployment branch policy for \`${GITHUB_DEFAULT_BRANCH}\` to \`${NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT}\` environment in \`${repo.name}\``,
+          `:shield: Adding deployment branch policy for \`${defaultBranch}\` to \`${NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT}\` environment in \`${repo.name}\``,
         );
         console.info(
           chalk.green('Adding deployment branch policy for'),
-          chalk.cyan(GITHUB_DEFAULT_BRANCH),
+          chalk.cyan(defaultBranch),
           'to',
           chalk.cyan(NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT),
           'environment in',
@@ -136,7 +137,7 @@ class TrustedPublisherPlugin implements Plugin {
             owner: org,
             repo: repo.name,
             environment_name: NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT,
-            name: GITHUB_DEFAULT_BRANCH,
+            name: defaultBranch,
             type: 'branch',
           });
         }
