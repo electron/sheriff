@@ -140,18 +140,6 @@ class TrustedPublisherPlugin implements Plugin {
           });
         }
       }
-
-      if (!IS_DRY_RUN) {
-        builder.addContext(
-          `:white_check_mark: Successfully configured \`${NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT}\` environment for \`${repo.name}\``,
-        );
-      }
-      console.info(
-        chalk.green('Successfully configured'),
-        chalk.cyan(NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT),
-        'environment for',
-        chalk.cyan(repo.name),
-      );
     }
   };
 }
