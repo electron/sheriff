@@ -39,16 +39,18 @@ class TrustedPublisherPlugin implements Plugin {
         environment_name: NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT,
       }));
 
-      if (environment && environment.deployment_branch_policy?.custom_branch_policies !== true) {
-        await octokit.repos.createOrUpdateEnvironment({
-          owner: org,
-          repo: repo.name,
-          environment_name: NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT,
-          deployment_branch_policy: {
-            protected_branches: false,
-            custom_branch_policies: true,
-          },
-        });
+      if (!!IS_DRY_RUN) {
+        if (environment && environment.deployment_branch_policy?.custom_branch_policies !== true) {
+          await octokit.repos.createOrUpdateEnvironment({
+            owner: org,
+            repo: repo.name,
+            environment_name: NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT,
+            deployment_branch_policy: {
+              protected_branches: false,
+              custom_branch_policies: true,
+            },
+          });
+        }
       }
     } catch (error: any) {
       if (error.status !== 404) {
