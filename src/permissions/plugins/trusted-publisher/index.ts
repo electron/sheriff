@@ -82,7 +82,7 @@ class TrustedPublisherPlugin implements Plugin {
       }
     }
 
-    if (!IS_DRY_RUN && environment) {
+    if (!IS_DRY_RUN || environment) {
       const { data: policies } = await octokit.repos.listDeploymentBranchPolicies({
         owner: org,
         repo: repo.name,
@@ -103,12 +103,14 @@ class TrustedPublisherPlugin implements Plugin {
             chalk.cyan(repo.name),
           );
 
-          await octokit.repos.deleteDeploymentBranchPolicy({
-            owner: org,
-            repo: repo.name,
-            environment_name: NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT,
-            branch_policy_id: policy.id!,
-          });
+          if (!IS_DRY_RUN) {
+            await octokit.repos.deleteDeploymentBranchPolicy({
+              owner: org,
+              repo: repo.name,
+              environment_name: NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT,
+              branch_policy_id: policy.id!,
+            });
+          }
 
           builder.addContext(
             `:wastebasket: Removed non-main branch deployment policy for \`${policy.name}\` from \`${NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT}\` environment in \`${repo.name}\``,
@@ -129,13 +131,15 @@ class TrustedPublisherPlugin implements Plugin {
           chalk.cyan(repo.name),
         );
 
-        await octokit.repos.createDeploymentBranchPolicy({
-          owner: org,
-          repo: repo.name,
-          environment_name: NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT,
-          name: GITHUB_DEFAULT_BRANCH,
-          type: 'branch',
-        });
+        if (!IS_DRY_RUN) {
+          await octokit.repos.createDeploymentBranchPolicy({
+            owner: org,
+            repo: repo.name,
+            environment_name: NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT,
+            name: GITHUB_DEFAULT_BRANCH,
+            type: 'branch',
+          });
+        }
       }
 
       builder.addContext(
