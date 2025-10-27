@@ -56,7 +56,6 @@ export interface RepositoryConfig {
   external_collaborators?: Record<string, SheriffAccessLevel>;
   settings?: Partial<RepoSettings>;
   visibility?: 'public' | 'private' | 'current';
-  default_branch?: string;
   properties?: Record<string, string | string[]>;
   rulesets?: (Ruleset | string)[];
   heroku?: {

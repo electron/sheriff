@@ -59,9 +59,6 @@ class TrustedPublisherPlugin implements Plugin {
     }
 
     if (!environment) {
-      builder.addContext(
-        `:npm: :security-meow: Creating GitHub environment \`${NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT}\` for repository \`${repo.name}\``,
-      );
       console.info(
         chalk.green('Creating GitHub environment'),
         chalk.cyan(NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT),
@@ -70,6 +67,9 @@ class TrustedPublisherPlugin implements Plugin {
       );
 
       if (!IS_DRY_RUN) {
+        builder.addContext(
+          `:npm: :security-meow: Creating GitHub environment \`${NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT}\` for repository \`${repo.name}\``,
+        );
         await octokit.repos.createOrUpdateEnvironment({
           owner: org,
           repo: repo.name,
@@ -89,10 +89,9 @@ class TrustedPublisherPlugin implements Plugin {
         environment_name: NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT,
       });
 
-      const defaultBranch = repo.default_branch || GITHUB_DEFAULT_BRANCH;
       let hasDefaultBranchPolicy = false;
       for (const policy of policies.branch_policies || []) {
-        if (policy.name === defaultBranch) {
+        if (policy.name === GITHUB_DEFAULT_BRANCH) {
           hasDefaultBranchPolicy = true;
         } else {
           console.info(
@@ -111,21 +110,17 @@ class TrustedPublisherPlugin implements Plugin {
               environment_name: NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT,
               branch_policy_id: policy.id!,
             });
+            builder.addContext(
+              `:wastebasket: Removed non-default branch deployment policy for \`${policy.name}\` from \`${NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT}\` environment in \`${repo.name}\``,
+            );
           }
-
-          builder.addContext(
-            `:wastebasket: Removed non-default branch deployment policy for \`${policy.name}\` from \`${NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT}\` environment in \`${repo.name}\``,
-          );
         }
       }
       // Add default branch policy if it doesn't exist
       if (!hasDefaultBranchPolicy) {
-        builder.addContext(
-          `:shield: Adding deployment branch policy for \`${defaultBranch}\` to \`${NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT}\` environment in \`${repo.name}\``,
-        );
         console.info(
           chalk.green('Adding deployment branch policy for'),
-          chalk.cyan(defaultBranch),
+          chalk.cyan(GITHUB_DEFAULT_BRANCH),
           'to',
           chalk.cyan(NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT),
           'environment in',
@@ -133,19 +128,24 @@ class TrustedPublisherPlugin implements Plugin {
         );
 
         if (!IS_DRY_RUN) {
+          builder.addContext(
+            `:shield: Adding deployment branch policy for \`${GITHUB_DEFAULT_BRANCH}\` to \`${NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT}\` environment in \`${repo.name}\``,
+          );
           await octokit.repos.createDeploymentBranchPolicy({
             owner: org,
             repo: repo.name,
             environment_name: NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT,
-            name: defaultBranch,
+            name: GITHUB_DEFAULT_BRANCH,
             type: 'branch',
           });
         }
       }
 
-      builder.addContext(
-        `:white_check_mark: Successfully configured \`${NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT}\` environment for \`${repo.name}\``,
-      );
+      if (!IS_DRY_RUN) {
+        builder.addContext(
+          `:white_check_mark: Successfully configured \`${NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT}\` environment for \`${repo.name}\``,
+        );
+      }
       console.info(
         chalk.green('Successfully configured'),
         chalk.cyan(NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT),
