@@ -32,8 +32,7 @@ class TrustedPublisherPlugin implements Plugin {
     const octokit = await getOctokit(org);
 
     // Get trusted publisher branches from config, default to ['main']
-    const trustedBranches: string[] =
-      repo.trustedPublisherBranches || [GITHUB_DEFAULT_BRANCH];
+    const trustedBranches: string[] = repo.trustedPublisherBranches || [GITHUB_DEFAULT_BRANCH];
 
     let environment;
     try {
