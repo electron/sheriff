@@ -33,7 +33,7 @@ class TrustedPublisherPlugin implements Plugin {
 
     // Get trusted publisher branches from config, default to ['main']
     const trustedBranches: string[] =
-      (repo.properties?.trustedPublisherBranches as string[] | undefined) || [GITHUB_DEFAULT_BRANCH];
+      repo.trustedPublisherBranches || [GITHUB_DEFAULT_BRANCH];
 
     let environment;
     try {
