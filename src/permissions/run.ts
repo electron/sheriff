@@ -227,6 +227,7 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
                 Joi.alternatives(Joi.string(), Joi.array().items(Joi.string())),
               )
               .optional(),
+            trustedPublisherBranches: Joi.array().items(Joi.string().min(1)).optional(),
             heroku: Joi.object({
               app_name: Joi.string().min(1).required(),
               team_name: Joi.string().min(1).required(),

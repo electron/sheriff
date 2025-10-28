@@ -58,6 +58,10 @@ export interface RepositoryConfig {
   visibility?: 'public' | 'private' | 'current';
   properties?: Record<string, string | string[]>;
   rulesets?: (Ruleset | string)[];
+  /**
+   * Branches allowed to use the npm trusted publisher environment
+   */
+  trustedPublisherBranches?: string[];
   heroku?: {
     app_name: string;
     team_name: string;
