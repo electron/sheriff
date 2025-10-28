@@ -476,6 +476,20 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
             }
           }
         }
+
+        // Validate that all properties configured on repositories exist in org customProperties
+        if (repo.properties) {
+          const definedPropertyNames = new Set(
+            orgConfig.customProperties.map((prop) => prop.property_name),
+          );
+          for (const propertyName of Object.keys(repo.properties)) {
+            if (!definedPropertyNames.has(propertyName)) {
+              throw new Error(
+                `Repository "${repo.name}" in "${orgConfig.organization}" is attempting to configure property "${propertyName}" which is not defined in the organization's customProperties configuration`,
+              );
+            }
+          }
+        }
       }
     }
 
