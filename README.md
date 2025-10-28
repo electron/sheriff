@@ -24,7 +24,7 @@ for it to work:
 
 ### The Webhook
 
-Deploy the webhook to Heroku with this button ➡️  [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
+Deploy the webhook to Heroku with this button ➡️ [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
 
 To the run the webhook server, you need to start the main Sheriff entry point.
 
