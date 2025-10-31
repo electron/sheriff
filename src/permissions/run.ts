@@ -40,6 +40,50 @@ const GLITCHED_REPO_HASHES = [
   'bc413d15c3f36be3440c26fad745619ec92effe583ce26849e7f7d5ad8f80465',
 ];
 
+/**
+ * Helper function to get the repository identifier.
+ * Returns the repo ID if available, otherwise returns the repo name.
+ */
+const getRepoIdentifier = (repo: RepositoryConfig): string | number => {
+  return repo.id ?? repo.name;
+};
+
+/**
+ * Loads repository IDs for all repos that don't have an ID specified.
+ * This function mutates the config by adding the `id` field to repos that don't have it.
+ */
+const loadMissingRepoIds = async (config: OrganizationConfig) => {
+  const octokit = await getOctokit(config.organization);
+  const reposWithoutIds = config.repositories.filter((repo) => !repo.id);
+
+  if (reposWithoutIds.length === 0) {
+    return;
+  }
+
+  console.info(
+    chalk.bold(
+      `Loading repository IDs for ${chalk.cyan(reposWithoutIds.length)} repos without IDs...`,
+    ),
+  );
+
+  for (const repo of reposWithoutIds) {
+    try {
+      const response = await octokit.repos.get({
+        owner: config.organization,
+        repo: repo.name,
+      });
+      repo.id = response.data.id;
+      console.info(
+        `  - Loaded ID ${chalk.cyan(response.data.id)} for repo ${chalk.cyan(repo.name)}`,
+      );
+    } catch (error: any) {
+      console.warn(
+        chalk.yellow(`  - Could not load ID for repo ${chalk.cyan(repo.name)}: ${error.message}`),
+      );
+    }
+  }
+};
+
 console.warn('Dry Run?:', chalk[IS_DRY_RUN ? 'green' : 'red'](`${IS_DRY_RUN}`));
 
 const loadCurrentConfig = async () => {
@@ -204,6 +248,7 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
         repositories: Joi.array()
           .items({
             name: Joi.string().min(1).required(),
+            id: Joi.number().integer().positive().optional(),
             teams: Joi.object()
               .pattern(
                 Joi.string(),
@@ -585,6 +630,10 @@ async function main() {
     console.info(
       chalk.bold(`Processing organization "${chalk.cyan(config.organization)}" configuration:`),
     );
+
+    // Load repo IDs for repos that don't have them
+    await loadMissingRepoIds(config);
+
     const allRepos = await listAllOrgRepos(config);
     const allTeams = await listAllTeams(config);
 
@@ -1289,24 +1338,25 @@ const metadata = new Map<
 >();
 async function loadRepositoryMetadata(config: OrganizationConfig, repo: RepositoryConfig) {
   const octokit = await getOctokit(config.organization);
+  const repoIdentifier = getRepoIdentifier(repo);
   const [currentTeams, currentInvites, currentCollaborators, currentRulesets] = await Promise.all([
     octokit.paginate(octokit.repos.listTeams, {
       owner: config.organization,
-      repo: repo.name,
+      repo: repoIdentifier,
     }),
     octokit.paginate(octokit.repos.listInvitations, {
       owner: config.organization,
-      repo: repo.name,
+      repo: repoIdentifier,
     }),
     octokit.paginate(octokit.repos.listCollaborators, {
       owner: config.organization,
-      repo: repo.name,
+      repo: repoIdentifier,
       affiliation: 'direct',
     }),
     repo.rulesets
       ? octokit
           .paginate(octokit.repos.getRepoRulesets, {
-            repo: repo.name,
+            repo: repoIdentifier,
             owner: config.organization,
           })
           .then((all) => {
@@ -1317,7 +1367,7 @@ async function loadRepositoryMetadata(config: OrganizationConfig, repo: Reposito
                   async (ruleset) =>
                     (
                       await octokit.repos.getRepoRuleset({
-                        repo: repo.name,
+                        repo: repoIdentifier,
                         owner: config.organization,
                         ruleset_id: ruleset.id,
                       })
@@ -1344,6 +1394,7 @@ async function checkRepository(
 ) {
   const { currentTeams, currentInvites, currentCollaborators, currentRulesets } =
     metadata.get(repo)!;
+  const repoIdentifier = getRepoIdentifier(repo);
 
   for (const currentTeam of currentTeams) {
     // Current team should not be on this repo according to the config
@@ -1368,7 +1419,7 @@ async function checkRepository(
           team_slug: currentTeam.slug,
           org: config.organization,
           owner: config.organization,
-          repo: repo.name,
+          repo: repoIdentifier,
         });
       }
     } else {
@@ -1396,7 +1447,7 @@ async function checkRepository(
             team_slug: currentTeam.slug,
             org: config.organization,
             owner: config.organization,
-            repo: repo.name,
+            repo: repoIdentifier,
             permission: sheriffLevelToGitHubLevel(supposedLevel),
           });
         }
@@ -1425,7 +1476,7 @@ async function checkRepository(
         const octokit = await getOctokit(config.organization);
         await octokit.teams.addOrUpdateRepoPermissionsInOrg({
           owner: config.organization,
-          repo: repo.name,
+          repo: repoIdentifier,
           permission: sheriffLevelToGitHubLevel(repo.teams![supposedTeamName]),
           org: config.organization,
           team_slug: (await findTeamByName(builder, config, supposedTeamName)).slug,
@@ -1454,7 +1505,7 @@ async function checkRepository(
         const octokit = await getOctokit(config.organization);
         await octokit.repos.deleteInvitation({
           owner: config.organization,
-          repo: repo.name,
+          repo: repoIdentifier,
           invitation_id: currentInvite.id,
         });
       }
@@ -1481,7 +1532,7 @@ async function checkRepository(
           const octokit = await getOctokit(config.organization);
           await octokit.repos.updateInvitation({
             owner: config.organization,
-            repo: repo.name,
+            repo: repoIdentifier,
             invitation_id: currentInvite.id,
             permissions: supposedLevel,
           });
@@ -1511,7 +1562,7 @@ async function checkRepository(
         const octokit = await getOctokit(config.organization);
         await octokit.repos.removeCollaborator({
           owner: config.organization,
-          repo: repo.name,
+          repo: repoIdentifier,
           username: currentCollaborator.login,
         });
       }
@@ -1538,7 +1589,7 @@ async function checkRepository(
           const octokit = await getOctokit(config.organization);
           await octokit.repos.addCollaborator({
             owner: config.organization,
-            repo: repo.name,
+            repo: repoIdentifier,
             username: currentCollaborator.login,
             permission: sheriffLevelToGitHubLevel(supposedLevel),
           });
@@ -1559,7 +1610,7 @@ async function checkRepository(
       const octokit = await getOctokit(config.organization);
       await octokit.repos.update({
         owner: config.organization,
-        repo: octoRepo.name,
+        repo: repoIdentifier,
         has_wiki: computedSettings.has_wiki,
       });
     }
@@ -1573,7 +1624,7 @@ async function checkRepository(
       'GET /repos/{owner}/{repo}/actions/permissions/fork-pr-contributor-approval',
       {
         owner: config.organization,
-        repo: repo.name,
+        repo: repoIdentifier,
       },
     );
     const currentSetting = response.data as { approval_policy: string };
@@ -1593,7 +1644,7 @@ async function checkRepository(
           'PUT /repos/{owner}/{repo}/actions/permissions/fork-pr-contributor-approval',
           {
             owner: config.organization,
-            repo: repo.name,
+            repo: repoIdentifier,
             approval_policy: 'all_external_contributors',
           },
         );
@@ -1633,7 +1684,7 @@ async function checkRepository(
           const octokit = await getOctokit(config.organization);
           await octokit.repos.update({
             owner: config.organization,
-            repo: octoRepo.name,
+            repo: repoIdentifier,
             private: shouldBePrivate,
           });
         }
@@ -1669,7 +1720,7 @@ async function checkRepository(
         const octokit = await getOctokit(config.organization);
         await octokit.repos.addCollaborator({
           owner: config.organization,
-          repo: repo.name,
+          repo: repoIdentifier,
           username: supposedCollaboratorName,
           permission: sheriffLevelToGitHubLevel(
             repo.external_collaborators![supposedCollaboratorName],
@@ -1683,7 +1734,7 @@ async function checkRepository(
     const octokit = await getOctokit(config.organization);
     const props = await octokit.repos.getCustomPropertiesValues({
       owner: config.organization,
-      repo: repo.name,
+      repo: repoIdentifier,
     });
 
     const sortProps = (a: { property_name: string }, b: { property_name: string }) =>
@@ -1759,7 +1810,7 @@ async function checkRepository(
 
         if (!IS_DRY_RUN) {
           await octokit.repos.deleteRepoRuleset({
-            repo: repo.name,
+            repo: repoIdentifier,
             owner: config.organization,
             ruleset_id: ruleset.id,
           });
@@ -1789,7 +1840,7 @@ async function checkRepository(
 
         if (!IS_DRY_RUN) {
           await octokit.repos.updateRepoRuleset({
-            repo: repo.name,
+            repo: repoIdentifier,
             owner: config.organization,
             ruleset_id: ruleset.id,
             ...githubFormattedRuleset,
@@ -1822,7 +1873,7 @@ async function checkRepository(
 
       if (!IS_DRY_RUN) {
         await octokit.repos.createRepoRuleset({
-          repo: repo.name,
+          repo: repoIdentifier,
           owner: config.organization,
           ...githubFormattedRuleset,
         });

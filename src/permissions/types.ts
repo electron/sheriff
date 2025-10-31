@@ -47,6 +47,10 @@ export interface Ruleset {
 export interface RepositoryConfig {
   name: string;
   /**
+   * GitHub repository ID. If provided, API calls will use the ID instead of the name.
+   */
+  id?: number;
+  /**
    * Map of team name to access level
    */
   teams?: Record<string, SheriffAccessLevel>;

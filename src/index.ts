@@ -125,6 +125,7 @@ async function takeActionOnRepositoryCollaborator(
   if (!targetRepoConfig) return { action: PermissionEnforcementAction.ALLOW_CHANGE };
 
   let expectedLevel = targetRepoConfig.external_collaborators?.[member.login];
+  const repoIdentifier = targetRepoConfig.id ?? repo.name;
 
   const octokit = await getOctokit(repo.owner.login);
   const orgOwners = await octokit.paginate(octokit.orgs.listMembers, {
@@ -153,7 +154,7 @@ async function takeActionOnRepositoryCollaborator(
 
     await octokit.repos.removeCollaborator({
       owner: repo.owner.login,
-      repo: repo.name,
+      repo: repoIdentifier,
       username: member.login,
     });
     return {
@@ -164,7 +165,7 @@ async function takeActionOnRepositoryCollaborator(
 
   const allCollaborators = await octokit.paginate('GET /repos/{owner}/{repo}/collaborators', {
     owner: repo.owner.login,
-    repo: repo.name,
+    repo: repoIdentifier,
     affiliation: 'direct',
   });
   const currentCollaborator = allCollaborators.find((c) => c.id === member.id);
@@ -178,7 +179,7 @@ async function takeActionOnRepositoryCollaborator(
   if (!currentSheriffLevel || currentSheriffLevel !== expectedLevel) {
     await octokit.repos.addCollaborator({
       owner: repo.owner.login,
-      repo: repo.name,
+      repo: repoIdentifier,
       username: member.login,
       permission: sheriffLevelToGitHubLevel(expectedLevel),
     });
@@ -248,9 +249,16 @@ webhooks.on(
     const originalPermission = (event.payload as any).changes.permission.from;
     // We have to fetch the new permission level through the API
     const octokit = await getOctokit(event.payload.repository.owner.login);
+
+    // Get the repo identifier (ID if available, otherwise name)
+    const allConfigs = await getValidatedConfig();
+    const orgConfig = allConfigs.find((c) => c.organization === event.payload.repository.owner.login);
+    const targetRepoConfig = orgConfig?.repositories.find((r) => r.name === event.payload.repository.name);
+    const repoIdentifier = targetRepoConfig?.id ?? event.payload.repository.name;
+
     const newPermissionLevel = await octokit.repos.getCollaboratorPermissionLevel({
       owner: event.payload.repository.owner.login,
-      repo: event.payload.repository.name,
+      repo: repoIdentifier,
       username: event.payload.member!.login,
     });
     const newPermission = newPermissionLevel.data.permission;
