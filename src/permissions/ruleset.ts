@@ -54,6 +54,8 @@ export function rulesetToGithub(ruleset: Ruleset, allTeams: { id: number; name: 
           ruleset.require_pull_request?.required_approving_review_count ?? 0,
         required_review_thread_resolution:
           ruleset.require_pull_request?.required_review_thread_resolution ?? false,
+        // @ts-expect-error: this doesn't seem to be updated in octokit/openapi-types
+        required_reviewers: ruleset.require_pull_request?.required_reviewers ?? [],
         allowed_merge_methods: ruleset.require_pull_request?.allowed_merge_methods ?? ['squash'],
       },
     });
