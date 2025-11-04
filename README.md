@@ -230,8 +230,6 @@ repositories:
           require_last_push_approval: <boolean>
           required_approving_review_count: <number>
           required_review_thread_resolution: <boolean>
-          required_review_thread_resolution: <boolean>
-          required_reviewers: <array>
         # Status checks that are required to make changes to the matching ref
         require_status_checks:
             # The literal check name that is required, this is what shows up in the GitHub UI
