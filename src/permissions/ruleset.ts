@@ -129,6 +129,7 @@ export function getDifferenceWithGithubRuleset(
     ?.parameters as any;
   if (prParameters) {
     delete prParameters.automatic_copilot_code_review_enabled;
+    delete prParameters.required_reviewers;
   }
 
   if (stripAnsi) {
