@@ -1,5 +1,5 @@
 import type { components as OctokitTypes } from '@octokit/openapi-types';
-import { diff } from 'jest-diff';
+import { diff } from '@vitest/utils/diff';
 
 import { Ruleset } from './types.js';
 
