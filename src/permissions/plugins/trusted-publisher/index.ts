@@ -42,7 +42,7 @@ class TrustedPublisherPlugin implements Plugin {
     builder: MessageBuilder,
     shouldBeInstalled: boolean,
   ) => {
-    const octokit = await getEnterpriseOctokit(org);
+    const octokit = await getEnterpriseOctokit(enterprise);
 
     let installId = this.installationIdCache[org];
     if (!installId) {
