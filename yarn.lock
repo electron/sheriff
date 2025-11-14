@@ -34,7 +34,6 @@ __metadata:
     "@types/fs-extra": "npm:^7.0.0"
     "@types/heroku-client": "npm:^3.1.3"
     "@types/joi": "npm:^14.3.3"
-    "@types/js-yaml": "npm:^3.12.1"
     "@types/node": "npm:^20.14.12"
     "@vitest/utils": "npm:^4.0.6"
     ansi-to-svg: "npm:^1.4.3"
@@ -47,12 +46,12 @@ __metadata:
     heroku-client: "npm:^3.1.0"
     husky: "npm:^8.0.0"
     joi: "npm:^17.13.3"
-    js-yaml: "npm:^3.13.1"
     lint-staged: "npm:^12.4.1"
     ora: "npm:^5.1.2"
     prettier: "npm:^2.7.1"
     queue: "npm:^6.0.2"
     typescript: "npm:^5.5.0"
+    yaml: "npm:^2.8.1"
   languageName: unknown
   linkType: soft
 
@@ -522,13 +521,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/js-yaml@npm:^3.12.1":
-  version: 3.12.1
-  resolution: "@types/js-yaml@npm:3.12.1"
-  checksum: 10c0/c6b8efc72ecf3e2e77ce6c5d9453b2a4798f9b97fefae76dfa32f4215fde25edbc7a9bba4bf20af05d764bd4212b08f61c614a65a858f640db069fbc02dfeb17
-  languageName: node
-  linkType: hard
-
 "@types/mime@npm:*":
   version: 2.0.1
   resolution: "@types/mime@npm:2.0.1"
@@ -695,15 +687,6 @@ __metadata:
     itermcolors-to-hex: "npm:^1.0.1"
     parse-ansi: "npm:^1.0.3"
   checksum: 10c0/030e03be1793fc335d370dd8840de93e6e51081e31cbea68a7a9206dd91ff4c8a8bd9a3baea70feac0fe79c6057d23322401d8963acbf3dde00edd7dec52d1ed
-  languageName: node
-  linkType: hard
-
-"argparse@npm:^1.0.7":
-  version: 1.0.10
-  resolution: "argparse@npm:1.0.10"
-  dependencies:
-    sprintf-js: "npm:~1.0.2"
-  checksum: 10c0/b2972c5c23c63df66bca144dbc65d180efa74f25f8fd9b7d9a0a6c88ae839db32df3d54770dcb6460cf840d232b60695d1a6b1053f599d84e73f7437087712de
   languageName: node
   linkType: hard
 
@@ -1208,16 +1191,6 @@ __metadata:
   version: 1.0.3
   resolution: "escape-html@npm:1.0.3"
   checksum: 10c0/524c739d776b36c3d29fa08a22e03e8824e3b2fd57500e5e44ecf3cc4707c34c60f9ca0781c0e33d191f2991161504c295e98f68c78fe7baa6e57081ec6ac0a3
-  languageName: node
-  linkType: hard
-
-"esprima@npm:^4.0.0":
-  version: 4.0.1
-  resolution: "esprima@npm:4.0.1"
-  bin:
-    esparse: ./bin/esparse.js
-    esvalidate: ./bin/esvalidate.js
-  checksum: 10c0/ad4bab9ead0808cf56501750fd9d3fb276f6b105f987707d059005d57e182d18a7c9ec7f3a01794ebddcca676773e42ca48a32d67a250c9d35e009ca613caba3
   languageName: node
   linkType: hard
 
@@ -1779,18 +1752,6 @@ __metadata:
     "@sideway/formula": "npm:^3.0.1"
     "@sideway/pinpoint": "npm:^2.0.0"
   checksum: 10c0/9262aef1da3f1bec5b03caf50c46368899fe03b8ff26cbe3d53af4584dd1049079fc97230bbf1500b6149db7cc765b9ee45f0deb24bb6fc3fa06229d7148c17f
-  languageName: node
-  linkType: hard
-
-"js-yaml@npm:^3.13.1":
-  version: 3.13.1
-  resolution: "js-yaml@npm:3.13.1"
-  dependencies:
-    argparse: "npm:^1.0.7"
-    esprima: "npm:^4.0.0"
-  bin:
-    js-yaml: bin/js-yaml.js
-  checksum: 10c0/6a4f78b998d2eb58964cc5e051c031865bf292dc3c156a8057cf468d9e60a8739f4e8f607a267e97f09eb8d08263b8262df57eddb16b920ec5a04a259c3b4960
   languageName: node
   linkType: hard
 
@@ -2467,13 +2428,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sprintf-js@npm:~1.0.2":
-  version: 1.0.3
-  resolution: "sprintf-js@npm:1.0.3"
-  checksum: 10c0/ecadcfe4c771890140da5023d43e190b7566d9cf8b2d238600f31bec0fc653f328da4450eb04bd59a431771a8e9cc0e118f0aa3974b683a4981b4e07abc2a5bb
-  languageName: node
-  linkType: hard
-
 "statuses@npm:2.0.1":
   version: 2.0.1
   resolution: "statuses@npm:2.0.1"
@@ -2836,5 +2790,14 @@ __metadata:
   version: 1.10.2
   resolution: "yaml@npm:1.10.2"
   checksum: 10c0/5c28b9eb7adc46544f28d9a8d20c5b3cb1215a886609a2fd41f51628d8aaa5878ccd628b755dbcd29f6bb4921bd04ffbc6dcc370689bb96e594e2f9813d2605f
+  languageName: node
+  linkType: hard
+
+"yaml@npm:^2.8.1":
+  version: 2.8.1
+  resolution: "yaml@npm:2.8.1"
+  bin:
+    yaml: bin.mjs
+  checksum: 10c0/7c587be00d9303d2ae1566e03bc5bc7fe978ba0d9bf39cc418c3139d37929dfcb93a230d9749f2cb578b6aa5d9ebebc322415e4b653cb83acd8bc0bc321707f3
   languageName: node
   linkType: hard

@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import crypto from 'crypto';
 import fs from 'fs-extra';
 import Joi from 'joi';
-import yml from 'js-yaml';
+import YAML from 'yaml';
 import _queue from 'queue';
 
 import { graphyOctokit, getOctokit } from '../octokit.js';
@@ -45,11 +45,11 @@ console.warn('Dry Run?:', chalk[IS_DRY_RUN ? 'green' : 'red'](`${IS_DRY_RUN}`));
 
 const loadCurrentConfig = async () => {
   if (fs.existsSync('config.yml'))
-    return yml.safeLoad(fs.readFileSync('config.yml', 'utf8')) as PermissionsConfig;
+    return YAML.parse(fs.readFileSync('config.yml', 'utf8')) as PermissionsConfig;
   if (fs.existsSync('config.yaml'))
-    return yml.safeLoad(fs.readFileSync('config.yaml', 'utf8')) as PermissionsConfig;
+    return YAML.parse(fs.readFileSync('config.yaml', 'utf8')) as PermissionsConfig;
   if (PERMISSIONS_FILE_LOCAL_PATH && fs.existsSync(PERMISSIONS_FILE_LOCAL_PATH)) {
-    return yml.safeLoad(fs.readFileSync(PERMISSIONS_FILE_LOCAL_PATH, 'utf8')) as PermissionsConfig;
+    return YAML.parse(fs.readFileSync(PERMISSIONS_FILE_LOCAL_PATH, 'utf8')) as PermissionsConfig;
   }
   if (!PERMISSIONS_FILE_ORG) {
     throw new Error('Missing PERMISSIONS_FILE_ORG env var');
@@ -64,7 +64,7 @@ const loadCurrentConfig = async () => {
   });
   if (Array.isArray(contents.data)) throw new Error('Invalid config file');
 
-  return yml.safeLoad(
+  return YAML.parse(
     // @ts-ignore - Octokit fails to type properties of ReposGetContentsResponse correctly.
     Buffer.from(contents.data.content || '', contents.data.encoding as any).toString('utf8'),
   ) as PermissionsConfig;
