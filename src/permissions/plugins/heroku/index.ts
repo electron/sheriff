@@ -2,7 +2,7 @@ import HerokuClient from 'heroku-client';
 
 import { MessageBuilder } from '../../../MessageBuilder.js';
 import { RepositoryConfig, TeamConfig } from '../../types.js';
-import { Plugin } from '../Plugin.js';
+import { Plugin, RepoOwner } from '../Plugin.js';
 import { HEROKU_MAGIC_ADMIN, HEROKU_TOKEN, SHERIFF_GSUITE_DOMAIN } from '../../../constants.js';
 import { IS_DRY_RUN } from '../../../helpers.js';
 import chalk from 'chalk';
@@ -35,7 +35,7 @@ class HerokuPlugin implements Plugin {
   handleRepo = async (
     repo: RepositoryConfig,
     teams: TeamConfig[],
-    org: string,
+    owner: RepoOwner,
     builder: MessageBuilder,
   ) => {
     const { heroku } = repo;

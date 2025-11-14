@@ -16,12 +16,17 @@ async function main(spinner: ora.Ora) {
   const octokit = await getOctokit(targetOrg, true);
 
   const permissions: PermissionsConfig = {
-    organization: targetOrg,
-    repository_defaults: {
-      has_wiki: false,
-    },
-    teams: [],
-    repositories: [],
+    enterprise: 'name-here',
+    organizations: [
+      {
+        organization: targetOrg,
+        repository_defaults: {
+          has_wiki: false,
+        },
+        teams: [],
+        repositories: [],
+      },
+    ],
   };
 
   spinner.text = 'Fetching all teams';
@@ -62,7 +67,7 @@ async function main(spinner: ora.Ora) {
       teamConfig.secret = true;
     }
 
-    permissions.teams.push(teamConfig);
+    permissions.organizations[0].teams.push(teamConfig);
   }
 
   spinner.text = 'Fetching all repositories';
@@ -110,11 +115,11 @@ async function main(spinner: ora.Ora) {
     if (repo.private) {
       repoConfig.visibility = 'private';
     }
-    permissions.repositories.push(repoConfig);
+    permissions.organizations[0].repositories.push(repoConfig);
   }
 
-  permissions.teams.sort((a, b) => a.name.localeCompare(b.name));
-  permissions.repositories.sort((a, b) => a.name.localeCompare(b.name));
+  permissions.organizations[0].teams.sort((a, b) => a.name.localeCompare(b.name));
+  permissions.organizations[0].repositories.sort((a, b) => a.name.localeCompare(b.name));
   spinner.succeed('Generated configuration');
   console.log(
     yml.dump(permissions, {

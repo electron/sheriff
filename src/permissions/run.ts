@@ -18,6 +18,7 @@ import {
   PERMISSIONS_FILE_LOCAL_PATH,
 } from '../constants.js';
 import {
+  EnterpriseConfig,
   OrganizationConfig,
   PermissionsConfig,
   RepoSettings,
@@ -69,9 +70,8 @@ const loadCurrentConfig = async () => {
   ) as PermissionsConfig;
 };
 
-const validateConfigFast = async (config: PermissionsConfig): Promise<OrganizationConfig[]> => {
-  const orgConfigs = Array.isArray(config) ? config : [config];
-  for (const orgConfig of orgConfigs) {
+const validateConfigFast = async (config: EnterpriseConfig): Promise<EnterpriseConfig> => {
+  for (const orgConfig of config.organizations) {
     if (!orgConfig || typeof orgConfig !== 'object' || !orgConfig.teams) continue;
 
     // Support formation prop
@@ -101,7 +101,7 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
     });
   }
 
-  for (const orgConfig of orgConfigs) {
+  for (const orgConfig of config.organizations) {
     if (!orgConfig || typeof orgConfig !== 'object' || !orgConfig.teams) continue;
 
     // Support reference prop
@@ -109,7 +109,9 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
       const anyTeam = team as any;
       if (anyTeam.reference) {
         const [referencedOrgName, referencedTeamName] = anyTeam.reference.split('/');
-        const referencedOrg = orgConfigs.find((org) => org.organization === referencedOrgName);
+        const referencedOrg = config.organizations.find(
+          (org) => org.organization === referencedOrgName,
+        );
         // This will error out later
         if (!referencedOrg) return team;
         const referencedTeam = referencedOrg.teams.find((t) => t.name === referencedTeamName);
@@ -179,89 +181,94 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
   });
 
   // Ensure the object looks right
-  const schema = Joi.array()
-    .items(
-      Joi.object({
-        organization: Joi.string().min(1).required(),
-        repository_defaults: Joi.object({
-          has_wiki: Joi.boolean().required(),
-          forks_need_actions_approval: Joi.boolean().optional(),
-        }).required(),
-        teams: Joi.array()
-          .items({
-            name: Joi.string().min(1).required(),
-            displayName: Joi.string().min(1).optional(),
-            parent: Joi.string().min(1).optional(),
-            secret: Joi.bool().optional(),
-            members: Joi.array().items(Joi.string().min(1)).min(0).required(),
-            maintainers: Joi.array().items(Joi.string().min(1)).min(1).required(),
-            gsuite: Joi.object({
-              privacy: Joi.string().valid('internal', 'external').required(),
-            }).optional(),
-            slack: Joi.string().min(1).allow(true).allow(false).optional(),
-          })
-          .required(),
-        repositories: Joi.array()
-          .items({
-            name: Joi.string().min(1).required(),
-            teams: Joi.object()
-              .pattern(
-                Joi.string(),
-                Joi.string().valid('read', 'triage', 'write', 'maintain', 'admin'),
-              )
-              .optional(),
-            external_collaborators: Joi.object()
-              .pattern(
-                Joi.string().min(1),
-                Joi.string().valid('read', 'triage', 'write', 'maintain', 'admin'),
-              )
-              .optional(),
-            settings: Joi.object({
-              has_wiki: Joi.boolean(),
-              forks_need_actions_approval: Joi.boolean().optional(),
-            }).optional(),
-            visibility: Joi.string().valid('public', 'private').optional(),
-            properties: Joi.object()
-              .pattern(
-                Joi.string(),
-                Joi.alternatives(Joi.string(), Joi.array().items(Joi.string())),
-              )
-              .optional(),
-            trustedPublisherBranches: Joi.array().items(Joi.string().min(1)).optional(),
-            heroku: Joi.object({
-              app_name: Joi.string().min(1).required(),
-              team_name: Joi.string().min(1).required(),
-              access: Joi.array().items(Joi.string().min(1)).optional(),
-            }).optional(),
-            rulesets: Joi.array()
-              .items(Joi.alternatives(Joi.string().min(1), rulesetValidator))
-              .min(1)
-              .optional(),
-          })
-          .required(),
-        common_rulesets: Joi.array().items(rulesetValidator).min(1).optional(),
-        customProperties: Joi.array()
-          .items(
-            Joi.object({
-              property_name: Joi.string().min(1).required(),
-              value_type: Joi.string().valid('string', 'single_select', 'multi_select').required(),
-              required: Joi.boolean().optional(),
-              default_value: Joi.alternatives(
-                Joi.string(),
-                Joi.array().items(Joi.string()),
-              ).optional(),
-              description: Joi.string().optional(),
-              allowed_values: Joi.array().items(Joi.string().min(1)).optional(),
-            }),
-          )
-          .optional(),
-      }),
-    )
-    .min(1)
-    .required();
-  await schema.validateAsync(orgConfigs);
+  const schema = Joi.object({
+    enterprise: Joi.string().min(1).required(),
+    organizations: Joi.array()
+      .items(
+        Joi.object({
+          organization: Joi.string().min(1).required(),
+          repository_defaults: Joi.object({
+            has_wiki: Joi.boolean().required(),
+            forks_need_actions_approval: Joi.boolean().optional(),
+          }).required(),
+          teams: Joi.array()
+            .items({
+              name: Joi.string().min(1).required(),
+              displayName: Joi.string().min(1).optional(),
+              parent: Joi.string().min(1).optional(),
+              secret: Joi.bool().optional(),
+              members: Joi.array().items(Joi.string().min(1)).min(0).required(),
+              maintainers: Joi.array().items(Joi.string().min(1)).min(1).required(),
+              gsuite: Joi.object({
+                privacy: Joi.string().valid('internal', 'external').required(),
+              }).optional(),
+              slack: Joi.string().min(1).allow(true).allow(false).optional(),
+            })
+            .required(),
+          repositories: Joi.array()
+            .items({
+              name: Joi.string().min(1).required(),
+              teams: Joi.object()
+                .pattern(
+                  Joi.string(),
+                  Joi.string().valid('read', 'triage', 'write', 'maintain', 'admin'),
+                )
+                .optional(),
+              external_collaborators: Joi.object()
+                .pattern(
+                  Joi.string().min(1),
+                  Joi.string().valid('read', 'triage', 'write', 'maintain', 'admin'),
+                )
+                .optional(),
+              settings: Joi.object({
+                has_wiki: Joi.boolean(),
+                forks_need_actions_approval: Joi.boolean().optional(),
+              }).optional(),
+              visibility: Joi.string().valid('public', 'private').optional(),
+              properties: Joi.object()
+                .pattern(
+                  Joi.string(),
+                  Joi.alternatives(Joi.string(), Joi.array().items(Joi.string())),
+                )
+                .optional(),
+              trustedPublisherBranches: Joi.array().items(Joi.string().min(1)).optional(),
+              heroku: Joi.object({
+                app_name: Joi.string().min(1).required(),
+                team_name: Joi.string().min(1).required(),
+                access: Joi.array().items(Joi.string().min(1)).optional(),
+              }).optional(),
+              rulesets: Joi.array()
+                .items(Joi.alternatives(Joi.string().min(1), rulesetValidator))
+                .min(1)
+                .optional(),
+            })
+            .required(),
+          common_rulesets: Joi.array().items(rulesetValidator).min(1).optional(),
+          customProperties: Joi.array()
+            .items(
+              Joi.object({
+                property_name: Joi.string().min(1).required(),
+                value_type: Joi.string()
+                  .valid('string', 'single_select', 'multi_select')
+                  .required(),
+                required: Joi.boolean().optional(),
+                default_value: Joi.alternatives(
+                  Joi.string(),
+                  Joi.array().items(Joi.string()),
+                ).optional(),
+                description: Joi.string().optional(),
+                allowed_values: Joi.array().items(Joi.string().min(1)).optional(),
+              }),
+            )
+            .optional(),
+        }),
+      )
+      .min(1)
+      .required(),
+  });
+  await schema.validateAsync(config);
 
-  for (const orgConfig of orgConfigs) {
+  for (const orgConfig of config.organizations) {
     for (const team of orgConfig.teams) {
       if (
         new Set([...team.members, ...team.maintainers]).size !==
@@ -566,7 +573,7 @@ const validateConfigFast = async (config: PermissionsConfig): Promise<Organizati
     }
   }
 
-  return orgConfigs;
+  return config;
 };
 
 export const getValidatedConfig = async () => {
@@ -576,9 +583,9 @@ export const getValidatedConfig = async () => {
 
 async function main() {
   const rawConfig = await loadCurrentConfig();
-  const orgConfigs = await validateConfigFast(rawConfig);
+  const enterpriseConfig = await validateConfigFast(rawConfig);
 
-  for (const config of orgConfigs) {
+  for (const config of enterpriseConfig.organizations) {
     const builder = MessageBuilder.create();
     const builderLengthAtStart = builder.length();
 
@@ -594,7 +601,7 @@ async function main() {
       console.info(chalk.bold('Syncing custom property definitions...'));
 
       const existingProperties = (
-        await octokit.orgs.getAllCustomProperties({
+        await octokit.orgs.customPropertiesForReposGetOrganizationDefinitions({
           org: config.organization,
         })
       ).data;
@@ -639,7 +646,7 @@ async function main() {
           );
 
           if (!IS_DRY_RUN) {
-            await octokit.orgs.createOrUpdateCustomProperty({
+            await octokit.orgs.customPropertiesForReposCreateOrUpdateOrganizationDefinition({
               org: config.organization,
               ...propertyPayload,
             });
@@ -662,7 +669,7 @@ async function main() {
             );
 
             if (!IS_DRY_RUN) {
-              await octokit.orgs.createOrUpdateCustomProperty({
+              await octokit.orgs.customPropertiesForReposCreateOrUpdateOrganizationDefinition({
                 org: config.organization,
                 ...propertyPayload,
               });
@@ -679,7 +686,7 @@ async function main() {
           );
 
           if (!IS_DRY_RUN) {
-            await octokit.orgs.removeCustomProperty({
+            await octokit.orgs.customPropertiesForReposDeleteOrganizationDefinition({
               org: config.organization,
               custom_property_name: existing.property_name,
             });
@@ -842,7 +849,12 @@ async function main() {
       } else {
         // Even archived repos need to have the plugins run on them
         for (const plugin of plugins) {
-          await plugin.handleRepo?.(repo, config.teams, config.organization, builder);
+          await plugin.handleRepo?.(
+            repo,
+            config.teams,
+            { org: config.organization, enterprise: enterpriseConfig.enterprise },
+            builder,
+          );
         }
       }
     }
@@ -868,7 +880,12 @@ async function main() {
       await checkRepository(builder, config, repo);
 
       for (const plugin of plugins) {
-        await plugin.handleRepo?.(repo, config.teams, config.organization, builder);
+        await plugin.handleRepo?.(
+          repo,
+          config.teams,
+          { org: config.organization, enterprise: enterpriseConfig.enterprise },
+          builder,
+        );
       }
     }
 
@@ -1681,7 +1698,7 @@ async function checkRepository(
 
   if (repo.properties) {
     const octokit = await getOctokit(config.organization);
-    const props = await octokit.repos.getCustomPropertiesValues({
+    const props = await octokit.repos.customPropertiesForReposGetRepositoryValues({
       owner: config.organization,
       repo: repo.name,
     });
@@ -1720,7 +1737,7 @@ async function checkRepository(
       );
 
       if (!IS_DRY_RUN) {
-        await octokit.orgs.createOrUpdateCustomPropertiesValuesForRepos({
+        await octokit.orgs.customPropertiesForReposCreateOrUpdateOrganizationValues({
           org: config.organization,
           repository_names: [repo.name],
           properties: mappedProperties,
