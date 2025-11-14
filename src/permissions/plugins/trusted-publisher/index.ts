@@ -4,6 +4,7 @@ import { Plugin } from '../Plugin.js';
 import {
   GITHUB_DEFAULT_BRANCH,
   NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT,
+  NPM_TRUSTED_PUBLISHER_APP_INSTALLATION_ID,
 } from '../../../constants.js';
 import { IS_DRY_RUN } from '../../../helpers.js';
 import { getOctokit } from '../../../octokit.js';
@@ -21,6 +22,64 @@ class TrustedPublisherPlugin implements Plugin {
 
     if (properties.type === 'ecosystem-npm-package') {
       await this.ensureNpmEnvironment(repo, org, builder);
+    }
+  };
+
+  private addRepoToTrustedPublisherApp = async (
+    repo: RepositoryConfig,
+    org: string,
+    builder: MessageBuilder,
+  ) => {
+    if (!NPM_TRUSTED_PUBLISHER_APP_INSTALLATION_ID) {
+      // Installation ID not configured, skip
+      return;
+    }
+
+    const octokit = await getOctokit(org);
+
+    try {
+      // First, get the repository ID
+      const { data: repoData } = await octokit.repos.get({
+        owner: org,
+        repo: repo.name,
+      });
+
+      console.info(
+        chalk.green('Adding repository'),
+        chalk.cyan(repo.name),
+        'to trusted publisher app installation',
+        chalk.cyan(NPM_TRUSTED_PUBLISHER_APP_INSTALLATION_ID),
+      );
+
+      if (!IS_DRY_RUN) {
+        // Add the repository to the app installation
+        await octokit.request(
+          'PUT /user/installations/{installation_id}/repositories/{repository_id}',
+          {
+            installation_id: NPM_TRUSTED_PUBLISHER_APP_INSTALLATION_ID,
+            repository_id: repoData.id,
+          },
+        );
+
+        builder.addContext(
+          `:npm: :shield: Added repository \`${repo.name}\` to trusted publisher app installation`,
+        );
+      }
+    } catch (error: any) {
+      // Log the error but don't fail the entire process
+      console.error(
+        chalk.red('Failed to add repository to trusted publisher app installation:'),
+        error.message,
+      );
+      if (error.status === 403) {
+        console.error(
+          chalk.yellow(
+            'Note: This operation requires appropriate authentication. ' +
+              'The current GitHub app token may not have permission to manage app installations. ' +
+              'You may need to use a personal access token or configure the app with additional permissions.',
+          ),
+        );
+      }
     }
   };
 
@@ -147,6 +206,9 @@ class TrustedPublisherPlugin implements Plugin {
         }
       }
     }
+
+    // Add the repository to the trusted publisher app installation
+    await this.addRepoToTrustedPublisherApp(repo, org, builder);
   };
 }
 
