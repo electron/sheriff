@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import ora from 'ora';
-import yml from 'js-yaml';
+import YAML from 'yaml';
 
 import { PERMISSIONS_FILE_ORG } from '../constants.js';
 import { getOctokit } from '../octokit.js';
@@ -122,8 +122,8 @@ async function main(spinner: ora.Ora) {
   permissions.organizations[0].repositories.sort((a, b) => a.name.localeCompare(b.name));
   spinner.succeed('Generated configuration');
   console.log(
-    yml.dump(permissions, {
-      sortKeys: true,
+    YAML.stringify(permissions, {
+      sortMapEntries: true,
     }),
   );
 }
