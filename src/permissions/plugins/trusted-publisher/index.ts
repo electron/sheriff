@@ -52,9 +52,9 @@ class TrustedPublisherPlugin implements Plugin {
       );
 
       if (!IS_DRY_RUN) {
-        // Add the repository to the app installation
+        // Add the repository to the app installation using the app-level API
         await octokit.request(
-          'PUT /user/installations/{installation_id}/repositories/{repository_id}',
+          'PUT /app/installations/{installation_id}/repositories/{repository_id}',
           {
             installation_id: NPM_TRUSTED_PUBLISHER_APP_INSTALLATION_ID,
             repository_id: repoData.id,
