@@ -4,6 +4,7 @@ import { Octokit } from '@octokit/rest';
 import {
   appCredentialsFromString,
   AuthNarrowing,
+  getAuthOptionsForEnterprise,
   getAuthOptionsForOrg,
   getTokenForOrg,
 } from '@electron/github-app-auth';
@@ -39,13 +40,32 @@ function getAuthNarrowing(forceReadOnly: boolean): AuthNarrowing {
 // org <-> Octokit
 let octokitMap: Map<string, Octokit> = new Map();
 export async function getOctokit(org: string, forceReadOnly = false): Promise<Octokit> {
-  if (!octokitMap.has(org)) {
+  const mapKey = `org/${org}`;
+  if (!octokitMap.has(mapKey)) {
     const creds = appCredentialsFromString(SHERIFF_GITHUB_APP_CREDS!);
     const authOpts = await getAuthOptionsForOrg(org, creds, getAuthNarrowing(forceReadOnly));
-    octokitMap.set(org, new Octokit({ ...authOpts }));
+    octokitMap.set(mapKey, new Octokit({ ...authOpts }));
   }
 
-  return octokitMap.get(org)!;
+  return octokitMap.get(mapKey)!;
+}
+
+export async function getEnterpriseOctokit(
+  enterprise: string,
+  forceReadOnly = false,
+): Promise<Octokit> {
+  const mapKey = `enterprise/${enterprise}`;
+  if (!octokitMap.has(mapKey)) {
+    const creds = appCredentialsFromString(SHERIFF_GITHUB_APP_CREDS!);
+    const authOpts = await getAuthOptionsForEnterprise(
+      enterprise,
+      creds,
+      getAuthNarrowing(forceReadOnly),
+    );
+    octokitMap.set(mapKey, new Octokit({ ...authOpts }));
+  }
+
+  return octokitMap.get(mapKey)!;
 }
 
 export async function graphyOctokit(org: string, forceReadOnly = false) {

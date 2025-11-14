@@ -118,7 +118,7 @@ async function takeActionOnRepositoryCollaborator(
   const member = event.payload.member!;
 
   const allConfigs = await getValidatedConfig();
-  const orgConfig = allConfigs.find((c) => c.organization === repo.owner.login);
+  const orgConfig = allConfigs.organizations.find((c) => c.organization === repo.owner.login);
   if (!orgConfig) return { action: PermissionEnforcementAction.ALLOW_CHANGE };
 
   const targetRepoConfig = orgConfig.repositories.find((r) => r.name === repo.name);

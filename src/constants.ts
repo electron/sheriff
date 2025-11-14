@@ -3,6 +3,8 @@ export const GITHUB_WEBHOOK_SECRET = process.env.GITHUB_WEBHOOK_SECRET || 'devel
 export const SHERIFF_GIST_TOKEN = process.env.SHERIFF_GIST_TOKEN || '';
 export const GITHUB_DEFAULT_BRANCH = 'main';
 export const NPM_TRUSTED_PUBLISHER_DEFAULT_ENVIRONMENT = 'npm-trusted-publisher';
+export const NPM_TRUSTED_PUBLISHER_GITHUB_APP_CLIENT_ID =
+  process.env.NPM_TRUSTED_PUBLISHER_GITHUB_APP_CLIENT_ID;
 
 export const PERMISSIONS_FILE_LOCAL_PATH = process.env.PERMISSIONS_FILE_LOCAL_PATH || '';
 

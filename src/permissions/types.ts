@@ -96,4 +96,9 @@ export interface OrganizationConfig {
   customProperties?: CustomProperty[];
 }
 
-export type PermissionsConfig = OrganizationConfig | OrganizationConfig[];
+export interface EnterpriseConfig {
+  enterprise: string;
+  organizations: OrganizationConfig[];
+}
+
+export type PermissionsConfig = EnterpriseConfig;
