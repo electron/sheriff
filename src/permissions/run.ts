@@ -45,11 +45,11 @@ console.warn('Dry Run?:', chalk[IS_DRY_RUN ? 'green' : 'red'](`${IS_DRY_RUN}`));
 
 const loadCurrentConfig = async () => {
   if (fs.existsSync('config.yml'))
-    return yml.safeLoad(fs.readFileSync('config.yml', 'utf8')) as PermissionsConfig;
+    return yml.load(fs.readFileSync('config.yml', 'utf8')) as PermissionsConfig;
   if (fs.existsSync('config.yaml'))
-    return yml.safeLoad(fs.readFileSync('config.yaml', 'utf8')) as PermissionsConfig;
+    return yml.load(fs.readFileSync('config.yaml', 'utf8')) as PermissionsConfig;
   if (PERMISSIONS_FILE_LOCAL_PATH && fs.existsSync(PERMISSIONS_FILE_LOCAL_PATH)) {
-    return yml.safeLoad(fs.readFileSync(PERMISSIONS_FILE_LOCAL_PATH, 'utf8')) as PermissionsConfig;
+    return yml.load(fs.readFileSync(PERMISSIONS_FILE_LOCAL_PATH, 'utf8')) as PermissionsConfig;
   }
   if (!PERMISSIONS_FILE_ORG) {
     throw new Error('Missing PERMISSIONS_FILE_ORG env var');
