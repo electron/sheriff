@@ -557,6 +557,28 @@ webhooks.on(
   }),
 );
 
+webhooks.on(
+  ['installation.deleted', 'installation.suspend'],
+  hook(async (event) => {
+    let msg = MessageBuilder.create()
+      .setEventPayload(event)
+      .setNotificationContent(
+        `Sheriff was just ${event.payload.action === 'suspend' ? 'Suspended' : 'Uninstalled'}`,
+      );
+    if (event.payload.installation.target_type === 'Enterprise' && event.payload.enterprise) {
+      msg = msg.addEnterpriseAndBlame(event.payload.enterprise, event.payload.sender);
+    } else if (
+      event.payload.installation.target_type === 'Organization' &&
+      event.payload.organization
+    ) {
+      msg = msg.addOrganizationAndBlame(event.payload.organization, event.payload.sender);
+    } else {
+      msg = msg.addBlame(event.payload.sender);
+    }
+    await msg.addSeverity('critical').send();
+  }),
+);
+
 const app = express();
 
 app.use('/static', express.static(path.resolve(import.meta.dirname, '../static')));

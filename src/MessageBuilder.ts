@@ -68,6 +68,18 @@ export class MessageBuilder {
     return this;
   }
 
+  public addEnterpriseAndBlame(
+    enterprise: webhookComponents['schemas']['enterprise'],
+    user: MinimalUserInfo,
+  ) {
+    this.divide();
+    this.addEnterpriseContext(enterprise);
+    this.divide();
+    this.addBlame(user);
+    this.divide();
+    return this;
+  }
+
   public addOrganizationAndBlame(
     organization: webhookComponents['schemas']['organization-simple-webhooks'],
     user: MinimalUserInfo,
@@ -123,6 +135,17 @@ export class MessageBuilder {
       createMarkdownBlock(
         `*Organization: <${organization.url}|${organization.login}>*\n${
           organization.description || 'No Description'
+        }`,
+      ),
+    );
+    return this;
+  }
+
+  public addEnterpriseContext(enterprise: webhookComponents['schemas']['enterprise']) {
+    this.addBlock(
+      createMarkdownBlock(
+        `*Enterprise: <${enterprise.html_url}|${enterprise.name}>*\n${
+          enterprise.description || 'No Description'
         }`,
       ),
     );
