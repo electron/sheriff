@@ -16,6 +16,8 @@ import {
   PERMISSIONS_FILE_REPO,
   PERMISSIONS_FILE_REF,
   PERMISSIONS_FILE_LOCAL_PATH,
+  SHERIFF_HOST_URL,
+  GITHUB_WEBHOOK_SECRET,
 } from '../constants.js';
 import {
   EnterpriseConfig,
@@ -597,9 +599,73 @@ async function main() {
 
     const octokit = await getOctokit(config.organization);
 
-    if (config.customProperties && config.customProperties.length > 0) {
-      console.info(chalk.bold('Syncing custom property definitions...'));
+    // Check if the webhook is configured
+    const HOOK_URL = SHERIFF_HOST_URL;
+    if (HOOK_URL) {
+      const orgHooks = await octokit.paginate('GET /orgs/{org}/hooks', {
+        org: config.organization,
+      });
+      const matchingHook = orgHooks.find((hook) => hook.config.url === HOOK_URL);
+      if (matchingHook) {
+        let needsUpdate = false;
+        if (!matchingHook.active) {
+          needsUpdate = true;
+        }
+        if (matchingHook.events.length !== 1 || matchingHook.events[0] !== '*') {
+          needsUpdate = true;
+        }
+        if (matchingHook.config.content_type !== 'json') {
+          needsUpdate = true;
+        }
 
+        if (needsUpdate) {
+          console.info(
+            chalk.green('Updating Sheriff webhook for organization'),
+            chalk.cyan(config.organization),
+            'configuration was incorrect',
+          );
+          builder.addContext(
+            `:hook: Updating Sheriff webhook for \`${config.organization}\` configuration was incorrect`,
+          );
+
+          if (!IS_DRY_RUN) {
+            await octokit.orgs.updateWebhook({
+              org: config.organization,
+              hook_id: matchingHook.id,
+              active: true,
+              events: ['*'],
+              config: {
+                url: HOOK_URL,
+                content_type: 'json',
+                secret: GITHUB_WEBHOOK_SECRET,
+              },
+            });
+          }
+        }
+      } else {
+        console.info(
+          chalk.green('Installing Sheriff webhook for organization'),
+          chalk.cyan(config.organization),
+        );
+        builder.addContext(`:hook: Installing Sheriff webhook for \`${config.organization}\``);
+
+        if (!IS_DRY_RUN) {
+          await octokit.orgs.createWebhook({
+            org: config.organization,
+            name: 'sheriff',
+            active: true,
+            events: ['*'],
+            config: {
+              url: HOOK_URL,
+              content_type: 'json',
+              secret: GITHUB_WEBHOOK_SECRET,
+            },
+          });
+        }
+      }
+    }
+
+    if (config.customProperties && config.customProperties.length > 0) {
       const existingProperties = (
         await octokit.orgs.customPropertiesForReposGetOrganizationDefinitions({
           org: config.organization,
