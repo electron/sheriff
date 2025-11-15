@@ -64,7 +64,7 @@ const loadCurrentConfig = async () => {
   });
   if (Array.isArray(contents.data)) throw new Error('Invalid config file');
 
-  return yml.safeLoad(
+  return yml.load(
     // @ts-ignore - Octokit fails to type properties of ReposGetContentsResponse correctly.
     Buffer.from(contents.data.content || '', contents.data.encoding as any).toString('utf8'),
   ) as PermissionsConfig;
