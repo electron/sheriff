@@ -1570,7 +1570,7 @@ async function checkRepository(
   update = update || octoRepo.has_wiki !== computedSettings.has_wiki;
 
   if (update) {
-    builder.addContext(`:speak_no_evil: Updating repostiory settings for \`${octoRepo.name}\``);
+    builder.addContext(`:speak_no_evil: Updating repository settings for \`${octoRepo.name}\``);
     console.info(chalk.yellow('Updating repository settings for'), chalk.cyan(octoRepo.name));
     if (!IS_DRY_RUN) {
       const octokit = await getOctokit(config.organization);

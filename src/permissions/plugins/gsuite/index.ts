@@ -101,7 +101,7 @@ class GSuitePlugin implements Plugin {
       }
     }
 
-    // Always udpate permissions, it's cheaper to always update than to check if we need to first
+    // Always update permissions, it's cheaper to always update than to check if we need to first
     if (!IS_DRY_RUN) {
       const groupsService = google.groupssettings('v1');
       await groupsService.groups.patch({

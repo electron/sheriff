@@ -94,7 +94,7 @@ class TrustedPublisherPlugin implements Plugin {
 
         if (!IS_DRY_RUN) {
           builder.addContext(
-            `:npm: :security-meow: :github2: Installating NPM Publisher GitHub App installation in org \`${org}\` and adding repo \`${repo.name}\``,
+            `:npm: :security-meow: :github2: Installing NPM Publisher GitHub App installation in org \`${org}\` and adding repo \`${repo.name}\``,
           );
           const newInstall = await octokit.request(
             'POST /enterprises/{enterprise}/apps/organizations/{org}/installations',

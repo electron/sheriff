@@ -1,7 +1,7 @@
 import { GitHubAccessLevel, SheriffAccessLevel } from './types.js';
 
-export const sheriffLevelToGitHubLevel = (acessLevel: SheriffAccessLevel): GitHubAccessLevel => {
-  switch (acessLevel) {
+export const sheriffLevelToGitHubLevel = (accessLevel: SheriffAccessLevel): GitHubAccessLevel => {
+  switch (accessLevel) {
     case 'read':
       return 'pull';
     case 'triage':
@@ -13,7 +13,7 @@ export const sheriffLevelToGitHubLevel = (acessLevel: SheriffAccessLevel): GitHu
     case 'admin':
       return 'admin';
   }
-  throw new Error(`Attempted to convert unknown github access level "${acessLevel}"`);
+  throw new Error(`Attempted to convert unknown github access level "${accessLevel}"`);
 };
 
 export const gitHubPermissionsToSheriffLevel = (gitHubPermissions: {
