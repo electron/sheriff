@@ -652,7 +652,7 @@ async function main() {
         if (!IS_DRY_RUN) {
           await octokit.orgs.createWebhook({
             org: config.organization,
-            name: 'sheriff',
+            name: 'web', // github is dumb, this always has to be web??
             active: true,
             events: ['*'],
             config: {
