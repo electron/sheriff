@@ -48,7 +48,7 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.14.12",
     "husky": "^8.0.0",
-    "lint-staged": "^12.4.1",
+    "lint-staged": "^16.3.1",
     "prettier": "^2.7.1",
     "typescript": "^5.5.0"
   },
