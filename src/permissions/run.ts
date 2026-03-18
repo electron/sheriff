@@ -133,6 +133,14 @@ const validateConfigFast = async (config: EnterpriseConfig): Promise<EnterpriseC
     });
   }
 
+  // GitHub rejects ruleset ref_name entries that are not fully qualified
+  // (e.g. "main" instead of "refs/heads/main") with a 400, which takes down the
+  // whole permission sync. Catch these at validation time so the dry run fails first.
+  const refNameItem = Joi.string().pattern(
+    /^(~DEFAULT_BRANCH|~ALL|refs\/(heads|tags)\/.+)$/,
+    'fully qualified ref (refs/heads/*, refs/tags/*, ~DEFAULT_BRANCH, or ~ALL)',
+  );
+
   const rulesetValidator = Joi.object({
     name: Joi.string().min(1).required(),
     target: Joi.string().valid('branch', 'tag').required(),
@@ -142,8 +150,8 @@ const validateConfigFast = async (config: EnterpriseConfig): Promise<EnterpriseC
       apps: Joi.array().items(Joi.number().integer().min(1)).optional(),
     }).optional(),
     ref_name: Joi.object({
-      include: Joi.array().items(Joi.string().min(1)).required(),
-      exclude: Joi.array().items(Joi.string().min(1)).optional(),
+      include: Joi.array().items(refNameItem).required(),
+      exclude: Joi.array().items(refNameItem).optional(),
     }).required(),
     rules: Joi.array()
       .items(
