@@ -31,6 +31,9 @@ export function rulesetToGithub(ruleset: Ruleset, allTeams: { id: number; name: 
         case 'restrict_update':
           generatedRules.push({
             type: 'update',
+            parameters: {
+              update_allows_fetch_and_merge: false,
+            },
           });
           break;
         case 'restrict_force_push':
