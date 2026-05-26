@@ -70,7 +70,7 @@ class TrustedPublisherPlugin implements Plugin {
 
     let installedRepos = this.installedRepos[org];
     if (!installedRepos && installId !== -1) {
-      const repos = await octokit.request(
+      const repos = await octokit.paginate<{ name: string }>(
         'GET /enterprises/{enterprise}/apps/organizations/{org}/installations/{installation_id}/repositories',
         {
           enterprise: enterprise,
@@ -79,7 +79,7 @@ class TrustedPublisherPlugin implements Plugin {
         },
       );
 
-      installedRepos = repos.data.map((r: { name: string }) => r.name);
+      installedRepos = repos.map((r) => r.name);
       this.installedRepos[org] = installedRepos;
     }
 
