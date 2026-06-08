@@ -10,7 +10,7 @@ import {
   createNodeMiddleware,
   EmitterWebhookEvent,
 } from '@octokit/webhooks';
-import { isMainRepo, hook } from './helpers.js';
+import { isMainRepo, isSecurityAdvisoryRepo, hook } from './helpers.js';
 import {
   MessageBuilder,
   createMessageBlock,
@@ -352,6 +352,7 @@ webhooks.on(
   'repository.deleted',
   hook(async (event) => {
     if (event.payload.sender.login === SHERIFF_SELF_LOGIN) return;
+    if (isSecurityAdvisoryRepo(event.payload.repository)) return;
 
     const text = 'A repository was just deleted';
     await MessageBuilder.create()

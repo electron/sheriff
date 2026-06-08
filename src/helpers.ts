@@ -5,6 +5,13 @@ export const isMainRepo = (repo: webhookComponents['schemas']['repository-webhoo
   return repo.name === repo.owner.login;
 };
 
+const SECURITY_ADVISORY_REPO_PATTERN =
+  /^[\w]+-ghsa-[A-Za-z0-9-]{4}-[A-Za-z0-9-]{4}-[A-Za-z0-9-]{4}$/;
+
+export const isSecurityAdvisoryRepo = (repo: { name: string }) => {
+  return SECURITY_ADVISORY_REPO_PATTERN.test(repo.name);
+};
+
 type HookContext = {
   log: (...args: any[]) => void;
   error: (...args: any[]) => void;
