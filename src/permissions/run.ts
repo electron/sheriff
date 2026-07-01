@@ -201,6 +201,7 @@ const validateConfigFast = async (config: EnterpriseConfig): Promise<EnterpriseC
           repository_defaults: Joi.object({
             has_wiki: Joi.boolean().required(),
             forks_need_actions_approval: Joi.boolean().optional(),
+            pr_creation_cap_bypass_list: Joi.array().items(Joi.string().min(1)).optional(),
           }).required(),
           teams: Joi.array()
             .items({
@@ -234,6 +235,7 @@ const validateConfigFast = async (config: EnterpriseConfig): Promise<EnterpriseC
               settings: Joi.object({
                 has_wiki: Joi.boolean(),
                 forks_need_actions_approval: Joi.boolean().optional(),
+                pr_creation_cap_bypass_list: Joi.array().items(Joi.string().min(1)).optional(),
               }).optional(),
               visibility: Joi.string().valid('public', 'private').optional(),
               properties: Joi.object()
@@ -243,7 +245,6 @@ const validateConfigFast = async (config: EnterpriseConfig): Promise<EnterpriseC
                 )
                 .optional(),
               trustedPublisherBranches: Joi.array().items(Joi.string().min(1)).optional(),
-              prCreationCapBypassList: Joi.array().items(Joi.string().min(1)).optional(),
               heroku: Joi.object({
                 app_name: Joi.string().min(1).required(),
                 team_name: Joi.string().min(1).required(),
@@ -1056,6 +1057,7 @@ const computeRepoSettings = (config: OrganizationConfig, repo: RepositoryConfig)
   return {
     has_wiki: keyOrDefault('has_wiki'),
     forks_need_actions_approval: keyOrDefault('forks_need_actions_approval'),
+    pr_creation_cap_bypass_list: keyOrDefault('pr_creation_cap_bypass_list'),
   };
 };
 
@@ -1694,9 +1696,10 @@ async function checkRepository(
     }
   }
 
-  // A present `prCreationCapBypassList` (including an empty array) means the config
+  // A present `pr_creation_cap_bypass_list` (including an empty array) means the config
   // fully owns the repo's PR creation cap bypass list; an absent field leaves it unmanaged.
-  if (repo.prCreationCapBypassList !== undefined) {
+  const desiredBypassList = computedSettings.pr_creation_cap_bypass_list;
+  if (desiredBypassList !== undefined) {
     const octokit = await getOctokit(config.organization);
 
     // Fetch the current bypass list and compare case-insensitively against the desired list.
@@ -1706,11 +1709,9 @@ async function checkRepository(
     });
     const currentUsers = bypassList.map((user) => user.login);
     const currentLogins = new Set(currentUsers.map((login) => login.toLowerCase()));
-    const desiredLogins = new Set(repo.prCreationCapBypassList.map((login) => login.toLowerCase()));
+    const desiredLogins = new Set(desiredBypassList.map((login) => login.toLowerCase()));
 
-    const usersToAdd = repo.prCreationCapBypassList.filter(
-      (login) => !currentLogins.has(login.toLowerCase()),
-    );
+    const usersToAdd = desiredBypassList.filter((login) => !currentLogins.has(login.toLowerCase()));
     const usersToRemove = currentUsers.filter((login) => !desiredLogins.has(login.toLowerCase()));
 
     if (usersToAdd.length > 0) {

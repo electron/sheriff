@@ -62,10 +62,6 @@ export interface RepositoryConfig {
    * Branches allowed to use the npm trusted publisher environment
    */
   trustedPublisherBranches?: string[];
-  /**
-   * GitHub usernames exempt from the repository's pull request creation cap
-   */
-  prCreationCapBypassList?: string[];
   heroku?: {
     app_name: string;
     team_name: string;
@@ -76,6 +72,10 @@ export interface RepositoryConfig {
 export interface RepoSettings {
   has_wiki: boolean;
   forks_need_actions_approval?: boolean;
+  /**
+   * GitHub usernames exempt from the repository's pull request creation cap
+   */
+  pr_creation_cap_bypass_list?: string[];
 }
 
 export interface TeamConfig {
