@@ -32,6 +32,7 @@ import {
 import { gitHubPermissionsToSheriffLevel, sheriffLevelToGitHubLevel } from './level-converters.js';
 import { fileURLToPath } from 'url';
 import { getDifferenceWithGithubRuleset, rulesetToGithub } from './ruleset.js';
+import { addToBypassList, getBypassList, removeFromBypassList } from './pr-creation-cap.js';
 import { components } from '@octokit/openapi-types';
 import { isDeepStrictEqual } from 'util';
 
@@ -1699,14 +1700,11 @@ async function checkRepository(
     const octokit = await getOctokit(config.organization);
 
     // Fetch the current bypass list and compare case-insensitively against the desired list.
-    const response = await octokit.request(
-      'GET /repos/{owner}/{repo}/interaction-limits/pulls/bypass-list',
-      {
-        owner: config.organization,
-        repo: repo.name,
-      },
-    );
-    const currentUsers = (response.data as { login: string }[]).map((user) => user.login);
+    const bypassList = await getBypassList(octokit, {
+      owner: config.organization,
+      repo: repo.name,
+    });
+    const currentUsers = bypassList.map((user) => user.login);
     const currentLogins = new Set(currentUsers.map((login) => login.toLowerCase()));
     const desiredLogins = new Set(repo.prCreationCapBypassList.map((login) => login.toLowerCase()));
 
@@ -1728,7 +1726,7 @@ async function checkRepository(
         chalk.cyan(repo.name),
       );
       if (!IS_DRY_RUN) {
-        await octokit.request('PUT /repos/{owner}/{repo}/interaction-limits/pulls/bypass-list', {
+        await addToBypassList(octokit, {
           owner: config.organization,
           repo: repo.name,
           users: usersToAdd,
@@ -1749,7 +1747,7 @@ async function checkRepository(
         chalk.cyan(repo.name),
       );
       if (!IS_DRY_RUN) {
-        await octokit.request('DELETE /repos/{owner}/{repo}/interaction-limits/pulls/bypass-list', {
+        await removeFromBypassList(octokit, {
           owner: config.organization,
           repo: repo.name,
           users: usersToRemove,
