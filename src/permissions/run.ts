@@ -242,6 +242,7 @@ const validateConfigFast = async (config: EnterpriseConfig): Promise<EnterpriseC
                 )
                 .optional(),
               trustedPublisherBranches: Joi.array().items(Joi.string().min(1)).optional(),
+              prCreationCapBypassList: Joi.array().items(Joi.string().min(1)).optional(),
               heroku: Joi.object({
                 app_name: Joi.string().min(1).required(),
                 team_name: Joi.string().min(1).required(),
@@ -1688,6 +1689,71 @@ async function checkRepository(
             approval_policy: 'all_external_contributors',
           },
         );
+      }
+    }
+  }
+
+  // A present `prCreationCapBypassList` (including an empty array) means the config
+  // fully owns the repo's PR creation cap bypass list; an absent field leaves it unmanaged.
+  if (repo.prCreationCapBypassList !== undefined) {
+    const octokit = await getOctokit(config.organization);
+
+    // Fetch the current bypass list and compare case-insensitively against the desired list.
+    const response = await octokit.request(
+      'GET /repos/{owner}/{repo}/interaction-limits/pulls/bypass-list',
+      {
+        owner: config.organization,
+        repo: repo.name,
+      },
+    );
+    const currentUsers = (response.data as { login: string }[]).map((user) => user.login);
+    const currentLogins = new Set(currentUsers.map((login) => login.toLowerCase()));
+    const desiredLogins = new Set(repo.prCreationCapBypassList.map((login) => login.toLowerCase()));
+
+    const usersToAdd = repo.prCreationCapBypassList.filter(
+      (login) => !currentLogins.has(login.toLowerCase()),
+    );
+    const usersToRemove = currentUsers.filter((login) => !desiredLogins.has(login.toLowerCase()));
+
+    if (usersToAdd.length > 0) {
+      builder.addContext(
+        `:unlock: Adding \`${usersToAdd.join(', ')}\` to the PR creation cap bypass list for \`${
+          repo.name
+        }\``,
+      );
+      console.info(
+        chalk.yellow('Adding'),
+        chalk.cyan(usersToAdd.join(', ')),
+        chalk.yellow('to the PR creation cap bypass list for'),
+        chalk.cyan(repo.name),
+      );
+      if (!IS_DRY_RUN) {
+        await octokit.request('PUT /repos/{owner}/{repo}/interaction-limits/pulls/bypass-list', {
+          owner: config.organization,
+          repo: repo.name,
+          users: usersToAdd,
+        });
+      }
+    }
+
+    if (usersToRemove.length > 0) {
+      builder.addContext(
+        `:lock: Removing \`${usersToRemove.join(
+          ', ',
+        )}\` from the PR creation cap bypass list for \`${repo.name}\``,
+      );
+      console.info(
+        chalk.yellow('Removing'),
+        chalk.cyan(usersToRemove.join(', ')),
+        chalk.yellow('from the PR creation cap bypass list for'),
+        chalk.cyan(repo.name),
+      );
+      if (!IS_DRY_RUN) {
+        await octokit.request('DELETE /repos/{owner}/{repo}/interaction-limits/pulls/bypass-list', {
+          owner: config.organization,
+          repo: repo.name,
+          users: usersToRemove,
+        });
       }
     }
   }

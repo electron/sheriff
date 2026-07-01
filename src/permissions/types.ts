@@ -62,6 +62,10 @@ export interface RepositoryConfig {
    * Branches allowed to use the npm trusted publisher environment
    */
   trustedPublisherBranches?: string[];
+  /**
+   * GitHub usernames exempt from the repository's pull request creation cap
+   */
+  prCreationCapBypassList?: string[];
   heroku?: {
     app_name: string;
     team_name: string;
