@@ -32,6 +32,7 @@ import {
 import { gitHubPermissionsToSheriffLevel, sheriffLevelToGitHubLevel } from './level-converters.js';
 import { fileURLToPath } from 'url';
 import { getDifferenceWithGithubRuleset, rulesetToGithub } from './ruleset.js';
+import { addToBypassList, getBypassList, removeFromBypassList } from './pr-creation-cap.js';
 import { components } from '@octokit/openapi-types';
 import { isDeepStrictEqual } from 'util';
 
@@ -200,6 +201,7 @@ const validateConfigFast = async (config: EnterpriseConfig): Promise<EnterpriseC
           repository_defaults: Joi.object({
             has_wiki: Joi.boolean().required(),
             forks_need_actions_approval: Joi.boolean().optional(),
+            pr_creation_cap_bypass_list: Joi.array().items(Joi.string().min(1)).optional(),
           }).required(),
           teams: Joi.array()
             .items({
@@ -233,6 +235,7 @@ const validateConfigFast = async (config: EnterpriseConfig): Promise<EnterpriseC
               settings: Joi.object({
                 has_wiki: Joi.boolean(),
                 forks_need_actions_approval: Joi.boolean().optional(),
+                pr_creation_cap_bypass_list: Joi.array().items(Joi.string().min(1)).optional(),
               }).optional(),
               visibility: Joi.string().valid('public', 'private').optional(),
               properties: Joi.object()
@@ -1054,6 +1057,7 @@ const computeRepoSettings = (config: OrganizationConfig, repo: RepositoryConfig)
   return {
     has_wiki: keyOrDefault('has_wiki'),
     forks_need_actions_approval: keyOrDefault('forks_need_actions_approval'),
+    pr_creation_cap_bypass_list: keyOrDefault('pr_creation_cap_bypass_list'),
   };
 };
 
@@ -1688,6 +1692,67 @@ async function checkRepository(
             approval_policy: 'all_external_contributors',
           },
         );
+      }
+    }
+  }
+
+  // A present `pr_creation_cap_bypass_list` (including an empty array) means the config
+  // fully owns the repo's PR creation cap bypass list; an absent field leaves it unmanaged.
+  const desiredBypassList = computedSettings.pr_creation_cap_bypass_list;
+  if (desiredBypassList !== undefined) {
+    const octokit = await getOctokit(config.organization);
+
+    // Fetch the current bypass list and compare case-insensitively against the desired list.
+    const bypassList = await getBypassList(octokit, {
+      owner: config.organization,
+      repo: repo.name,
+    });
+    const currentUsers = bypassList.map((user) => user.login);
+    const currentLogins = new Set(currentUsers.map((login) => login.toLowerCase()));
+    const desiredLogins = new Set(desiredBypassList.map((login) => login.toLowerCase()));
+
+    const usersToAdd = desiredBypassList.filter((login) => !currentLogins.has(login.toLowerCase()));
+    const usersToRemove = currentUsers.filter((login) => !desiredLogins.has(login.toLowerCase()));
+
+    if (usersToAdd.length > 0) {
+      builder.addContext(
+        `:unlock: Adding \`${usersToAdd.join(', ')}\` to the PR creation cap bypass list for \`${
+          repo.name
+        }\``,
+      );
+      console.info(
+        chalk.yellow('Adding'),
+        chalk.cyan(usersToAdd.join(', ')),
+        chalk.yellow('to the PR creation cap bypass list for'),
+        chalk.cyan(repo.name),
+      );
+      if (!IS_DRY_RUN) {
+        await addToBypassList(octokit, {
+          owner: config.organization,
+          repo: repo.name,
+          users: usersToAdd,
+        });
+      }
+    }
+
+    if (usersToRemove.length > 0) {
+      builder.addContext(
+        `:lock: Removing \`${usersToRemove.join(
+          ', ',
+        )}\` from the PR creation cap bypass list for \`${repo.name}\``,
+      );
+      console.info(
+        chalk.yellow('Removing'),
+        chalk.cyan(usersToRemove.join(', ')),
+        chalk.yellow('from the PR creation cap bypass list for'),
+        chalk.cyan(repo.name),
+      );
+      if (!IS_DRY_RUN) {
+        await removeFromBypassList(octokit, {
+          owner: config.organization,
+          repo: repo.name,
+          users: usersToRemove,
+        });
       }
     }
   }

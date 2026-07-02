@@ -72,6 +72,10 @@ export interface RepositoryConfig {
 export interface RepoSettings {
   has_wiki: boolean;
   forks_need_actions_approval?: boolean;
+  /**
+   * GitHub usernames exempt from the repository's pull request creation cap
+   */
+  pr_creation_cap_bypass_list?: string[];
 }
 
 export interface TeamConfig {
