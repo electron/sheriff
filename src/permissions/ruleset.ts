@@ -139,6 +139,22 @@ export function getDifferenceWithGithubRuleset(
   if (prParameters) {
     delete prParameters.automatic_copilot_code_review_enabled;
     delete prParameters.required_reviewers;
+
+    // GitHub materializes a disabled dismissal_restriction in API responses even
+    // when it was never configured, treat that default as unset to avoid
+    // detecting drift on every sync
+    const expectedPrParameters = ruleset.rules?.find((r) => r.type === 'pull_request')
+      ?.parameters as any;
+    const { dismissal_restriction: dismissalRestriction } = prParameters;
+    if (
+      !expectedPrParameters?.dismissal_restriction &&
+      dismissalRestriction &&
+      dismissalRestriction.enabled === false &&
+      Array.isArray(dismissalRestriction.allowed_actors) &&
+      dismissalRestriction.allowed_actors.length === 0
+    ) {
+      delete prParameters.dismissal_restriction;
+    }
   }
 
   if (stripAnsi) {
