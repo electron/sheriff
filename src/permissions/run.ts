@@ -1790,7 +1790,7 @@ async function checkRepository(
 
     if (!capMatches) {
       const currentDescription = currentCap.enabled
-        ? `${currentCap.max_open_pull_requests}`
+        ? `${currentCap.max_open_pull_requests ?? 'enabled'}`
         : 'disabled';
       const desiredDescription = desiredCap === false ? 'disabled' : `${desiredCap}`;
       builder.addContext(
@@ -1799,9 +1799,9 @@ async function checkRepository(
       console.info(
         chalk.yellow('Changing the PR creation cap for'),
         chalk.cyan(repo.name),
-        'from',
+        chalk.yellow('from'),
         chalk.magenta(currentDescription),
-        'to',
+        chalk.yellow('to'),
         chalk.magenta(desiredDescription),
       );
       if (!IS_DRY_RUN) {
