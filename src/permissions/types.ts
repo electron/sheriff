@@ -76,6 +76,13 @@ export interface RepoSettings {
    * GitHub usernames exempt from the repository's pull request creation cap
    */
   pr_creation_cap_bypass_list?: string[];
+  /**
+   * The repository's pull request creation cap, i.e. the maximum number of
+   * open pull requests a single user can have at one time. Set to a positive
+   * integer to enable the cap at that value, or `false` to disable the cap.
+   * When absent the repository's cap is left unmanaged.
+   */
+  pr_creation_cap?: number | false;
 }
 
 export interface TeamConfig {

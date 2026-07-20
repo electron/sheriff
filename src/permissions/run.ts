@@ -32,7 +32,13 @@ import {
 import { gitHubPermissionsToSheriffLevel, sheriffLevelToGitHubLevel } from './level-converters.js';
 import { fileURLToPath } from 'url';
 import { getDifferenceWithGithubRuleset, rulesetToGithub } from './ruleset.js';
-import { addToBypassList, getBypassList, removeFromBypassList } from './pr-creation-cap.js';
+import {
+  addToBypassList,
+  getBypassList,
+  getCreationCap,
+  removeFromBypassList,
+  setCreationCap,
+} from './pr-creation-cap.js';
 import { components } from '@octokit/openapi-types';
 import { isDeepStrictEqual } from 'util';
 
@@ -202,6 +208,10 @@ const validateConfigFast = async (config: EnterpriseConfig): Promise<EnterpriseC
             has_wiki: Joi.boolean().required(),
             forks_need_actions_approval: Joi.boolean().optional(),
             pr_creation_cap_bypass_list: Joi.array().items(Joi.string().min(1)).optional(),
+            pr_creation_cap: Joi.alternatives(
+              Joi.number().integer().min(1),
+              Joi.boolean().valid(false),
+            ).optional(),
           }).required(),
           teams: Joi.array()
             .items({
@@ -236,6 +246,10 @@ const validateConfigFast = async (config: EnterpriseConfig): Promise<EnterpriseC
                 has_wiki: Joi.boolean(),
                 forks_need_actions_approval: Joi.boolean().optional(),
                 pr_creation_cap_bypass_list: Joi.array().items(Joi.string().min(1)).optional(),
+                pr_creation_cap: Joi.alternatives(
+                  Joi.number().integer().min(1),
+                  Joi.boolean().valid(false),
+                ).optional(),
               }).optional(),
               visibility: Joi.string().valid('public', 'private').optional(),
               properties: Joi.object()
@@ -1058,6 +1072,7 @@ const computeRepoSettings = (config: OrganizationConfig, repo: RepositoryConfig)
     has_wiki: keyOrDefault('has_wiki'),
     forks_need_actions_approval: keyOrDefault('forks_need_actions_approval'),
     pr_creation_cap_bypass_list: keyOrDefault('pr_creation_cap_bypass_list'),
+    pr_creation_cap: keyOrDefault('pr_creation_cap'),
   };
 };
 
@@ -1752,6 +1767,49 @@ async function checkRepository(
           owner: config.organization,
           repo: repo.name,
           users: usersToRemove,
+        });
+      }
+    }
+  }
+
+  // A present `pr_creation_cap` means the config fully owns the repo's PR creation
+  // cap value; an absent field leaves it unmanaged. A numeric value enables the cap
+  // at that value and `false` disables the cap entirely.
+  const desiredCap = computedSettings.pr_creation_cap;
+  if (desiredCap !== undefined) {
+    const octokit = await getOctokit(config.organization);
+
+    const currentCap = await getCreationCap(octokit, {
+      owner: config.organization,
+      repo: repo.name,
+    });
+    const desiredEnabled = desiredCap !== false;
+    const capMatches =
+      currentCap.enabled === desiredEnabled &&
+      (!desiredEnabled || currentCap.max_open_pull_requests === desiredCap);
+
+    if (!capMatches) {
+      const currentDescription = currentCap.enabled
+        ? `${currentCap.max_open_pull_requests ?? 'enabled'}`
+        : 'disabled';
+      const desiredDescription = desiredCap === false ? 'disabled' : `${desiredCap}`;
+      builder.addContext(
+        `:vertical_traffic_light: Changing the PR creation cap for \`${repo.name}\` from \`${currentDescription}\` :arrow_right: \`${desiredDescription}\``,
+      );
+      console.info(
+        chalk.yellow('Changing the PR creation cap for'),
+        chalk.cyan(repo.name),
+        chalk.yellow('from'),
+        chalk.magenta(currentDescription),
+        chalk.yellow('to'),
+        chalk.magenta(desiredDescription),
+      );
+      if (!IS_DRY_RUN) {
+        await setCreationCap(octokit, {
+          owner: config.organization,
+          repo: repo.name,
+          enabled: desiredEnabled,
+          maxOpenPullRequests: desiredCap === false ? undefined : desiredCap,
         });
       }
     }
