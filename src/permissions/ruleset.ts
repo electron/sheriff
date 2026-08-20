@@ -139,6 +139,9 @@ export function getDifferenceWithGithubRuleset(
   if (prParameters) {
     delete prParameters.automatic_copilot_code_review_enabled;
     delete prParameters.required_reviewers;
+    // GitHub echoes this field in responses but sheriff's config schema can't
+    // express it, so it's unmanaged
+    delete prParameters.require_extra_approval_for_unattributed_changes;
 
     // GitHub materializes a disabled dismissal_restriction in API responses even
     // when it was never configured, treat that default as unset to avoid
