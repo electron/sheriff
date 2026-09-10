@@ -2,13 +2,14 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  approvePendingRuns,
   evaluateVouchedCI,
   findVouchedUser,
-  selectApprovableRuns,
+  isApprovableRun,
+  matchPullRequestForRun,
   MAX_PULL_REQUEST_COMMITS,
   VouchedCICommit,
   VouchedCIInput,
+  VouchedCIWorkflowRun,
 } from './vouched-ci.js';
 
 const alice = { login: 'alice', id: 1001 };
@@ -245,116 +246,103 @@ describe('evaluateVouchedCI', () => {
   });
 });
 
-describe('selectApprovableRuns', () => {
-  const run = (id: number, overrides: Record<string, unknown> = {}) => ({
-    id,
-    head_sha: 'bbb',
-    event: 'pull_request',
-    status: 'action_required',
-    conclusion: 'action_required',
-    ...overrides,
+const BASE_REPO_ID = 55;
+const FORK_REPO_ID = 77;
+
+const run = (overrides: Partial<VouchedCIWorkflowRun> = {}): VouchedCIWorkflowRun => ({
+  id: 1,
+  head_sha: 'bbb',
+  head_branch: 'feature',
+  head_repository: { id: FORK_REPO_ID, owner: { login: 'alice' } },
+  event: 'pull_request',
+  status: 'completed',
+  conclusion: 'action_required',
+  ...overrides,
+});
+
+const expectNotApprovable = (r: VouchedCIWorkflowRun, pattern: RegExp) => {
+  const check = isApprovableRun(r, BASE_REPO_ID);
+  assert.equal(check.approvable, false);
+  if (!check.approvable) assert.match(check.reason, pattern);
+};
+
+describe('isApprovableRun', () => {
+  it('accepts a gated pull_request run from a fork', () => {
+    assert.deepEqual(isApprovableRun(run(), BASE_REPO_ID), { approvable: true });
   });
 
-  it('keeps only pending pull_request runs on the verified head SHA', () => {
-    const runs = [
-      run(1),
-      run(2, { head_sha: 'ccc' }),
-      run(3, { event: 'pull_request_target' }),
-      run(4, { status: 'completed', conclusion: 'success' }),
-      run(5, { status: 'action_required', conclusion: null }),
-      run(6, { status: 'completed', conclusion: 'action_required' }),
-    ];
+  it('also accepts a run whose status (rather than conclusion) is action_required', () => {
     assert.deepEqual(
-      selectApprovableRuns(runs, 'bbb').map((r) => r.id),
-      [1, 5, 6],
+      isApprovableRun(run({ status: 'action_required', conclusion: null }), BASE_REPO_ID),
+      { approvable: true },
     );
   });
 
-  it('selects nothing when the head SHA does not match', () => {
-    assert.deepEqual(selectApprovableRuns([run(1)], 'ccc'), []);
+  it('rejects runs for other events, including pull_request_target', () => {
+    expectNotApprovable(run({ event: 'pull_request_target' }), /pull_request_target, not/);
+    expectNotApprovable(run({ event: 'push' }), /push, not/);
+  });
+
+  it('rejects runs that are not awaiting approval', () => {
+    expectNotApprovable(run({ status: 'queued', conclusion: null }), /not awaiting approval/);
+    expectNotApprovable(
+      run({ status: 'completed', conclusion: 'success' }),
+      /not awaiting approval/,
+    );
+    expectNotApprovable(run({ status: 'requested', conclusion: null }), /not awaiting approval/);
+  });
+
+  it('rejects runs from the repository itself', () => {
+    expectNotApprovable(
+      run({ head_repository: { id: BASE_REPO_ID, owner: { login: 'org' } } }),
+      /not from a fork/,
+    );
+  });
+
+  it('rejects runs whose head repository is missing', () => {
+    expectNotApprovable(run({ head_repository: null }), /no head repository/);
+  });
+
+  it('rejects runs whose head repository owner is missing', () => {
+    expectNotApprovable(run({ head_repository: { id: FORK_REPO_ID, owner: null } }), /no owner/);
+  });
+
+  it('rejects runs without a head branch, which cannot be resolved to a pull request', () => {
+    expectNotApprovable(run({ head_branch: null }), /no head branch/);
   });
 });
 
-describe('approvePendingRuns', () => {
-  const run = (id: number, overrides: Record<string, unknown> = {}) => ({
-    id,
-    name: `workflow-${id}`,
-    head_sha: 'bbb',
-    event: 'pull_request',
-    status: 'action_required',
-    conclusion: null,
-    ...overrides,
+describe('matchPullRequestForRun', () => {
+  const pr = (number: number, sha = 'bbb', repoId: number | null = FORK_REPO_ID) => ({
+    number,
+    head: { sha, repo: repoId === null ? null : { id: repoId } },
   });
 
-  const harness = (listings: ReturnType<typeof run>[][], headShas: string[] = []) => {
-    const approved: number[] = [];
-    const sleeps: number[] = [];
-    let headChecks = 0;
-    const options = {
-      verifiedHeadSha: 'bbb',
-      listPendingRuns: async () => listings.shift() ?? [],
-      getCurrentHeadSha: async () => headShas[headChecks++] ?? 'bbb',
-      approveRun: async (r: ReturnType<typeof run>) => {
-        approved.push(r.id);
-        return true;
-      },
-      sleep: async (ms: number) => {
-        sleeps.push(ms);
-      },
-      maxPolls: 6,
-      pollIntervalMs: 10,
-    };
-    return { options, approved, sleeps, headChecks: () => headChecks };
-  };
-
-  it('approves runs that only show up on a later poll, each exactly once', async () => {
-    const h = harness([[], [run(1)], [run(1), run(2)], [run(1), run(2)], [run(1), run(2)]]);
-    const result = await approvePendingRuns(h.options);
-    assert.deepEqual(h.approved, [1, 2]);
-    assert.deepEqual(result.approvedRunIds, [1, 2]);
-    assert.deepEqual(result.selectedRunIds, [1, 2]);
-    assert.equal(result.abortReason, undefined);
+  it('returns the single pull request pinned to the run head and head repository', () => {
+    const match = matchPullRequestForRun([pr(1, 'aaa'), pr(2), pr(3, 'bbb', 78)], run());
+    assert.equal(match.pullRequest?.number, 2);
   });
 
-  it('exits early only after approving something and then two quiet polls', async () => {
-    const h = harness([[run(1)], [], []]);
-    const result = await approvePendingRuns(h.options);
-    assert.equal(result.polls, 3);
-    assert.deepEqual(h.sleeps, [10, 10]);
-    assert.deepEqual(result.approvedRunIds, [1]);
+  it('returns null when there are no candidates', () => {
+    const match = matchPullRequestForRun([], run());
+    assert.equal(match.pullRequest, null);
+    if (!match.pullRequest) assert.match(match.reason, /no open pull request has head bbb/);
   });
 
-  it('keeps polling for the whole window when nothing shows up', async () => {
-    const h = harness([]);
-    const result = await approvePendingRuns(h.options);
-    assert.equal(result.polls, 6);
-    assert.equal(h.sleeps.length, 5);
-    assert.deepEqual(result.selectedRunIds, []);
-    assert.deepEqual(result.approvedRunIds, []);
-    assert.equal(h.headChecks(), 0);
+  it('returns null when two pull requests share the head', () => {
+    const match = matchPullRequestForRun([pr(1), pr(2)], run());
+    assert.equal(match.pullRequest, null);
+    if (!match.pullRequest) assert.match(match.reason, /2 open pull requests \(#1, #2\)/);
   });
 
-  it('re-checks the head before every approval batch and aborts when it moved', async () => {
-    const h = harness([[run(1)], [run(1), run(2)]], ['bbb', 'ccc']);
-    const result = await approvePendingRuns(h.options);
-    assert.deepEqual(h.approved, [1]);
-    assert.deepEqual(result.approvedRunIds, [1]);
-    assert.match(result.abortReason!, /head moved from bbb to ccc/);
-    assert.equal(h.headChecks(), 2);
+  it('ignores pull requests whose head sha differs from the run', () => {
+    const match = matchPullRequestForRun([pr(1, 'ccc')], run());
+    assert.equal(match.pullRequest, null);
   });
 
-  it('ignores runs that selectApprovableRuns rejects', async () => {
-    const h = harness([[run(1, { head_sha: 'ccc' }), run(2, { event: 'pull_request_target' })]]);
-    const result = await approvePendingRuns(h.options);
-    assert.deepEqual(result.selectedRunIds, []);
-    assert.equal(h.headChecks(), 0);
-  });
-
-  it('does not retry a run that approveRun refused, nor report it as approved', async () => {
-    const h = harness([[run(1)], [run(1)], [run(1)]]);
-    h.options.approveRun = async () => false;
-    const result = await approvePendingRuns(h.options);
-    assert.deepEqual(result.selectedRunIds, [1]);
-    assert.deepEqual(result.approvedRunIds, []);
+  it('ignores pull requests whose head repository differs from the run', () => {
+    assert.equal(matchPullRequestForRun([pr(1, 'bbb', 78)], run()).pullRequest, null);
+    assert.equal(matchPullRequestForRun([pr(1, 'bbb', null)], run()).pullRequest, null);
+    assert.equal(matchPullRequestForRun([pr(1)], run({ head_repository: null })).pullRequest, null);
   });
 });

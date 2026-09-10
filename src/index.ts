@@ -35,7 +35,12 @@ import {
 } from './permissions/level-converters.js';
 import { SheriffAccessLevel } from './permissions/types.js';
 import { queueDryRun } from './dry-run-q.js';
-import { approvePendingRuns, evaluateVouchedCI, findVouchedUser } from './vouched-ci.js';
+import {
+  evaluateVouchedCI,
+  findVouchedUser,
+  isApprovableRun,
+  matchPullRequestForRun,
+} from './vouched-ci.js';
 
 const webhooks = new WebhooksApi({
   secret: GITHUB_WEBHOOK_SECRET,
@@ -520,27 +525,50 @@ webhooks.on(
 );
 
 webhooks.on(
-  ['pull_request.opened', 'pull_request.synchronize', 'pull_request.reopened'],
+  'workflow_run.requested',
   hook(async (event, ctx) => {
     const repo = event.payload.repository;
-    const pr = event.payload.pull_request;
-    const headSha = pr.head.sha;
-    // Pull requests from the repository itself never need approval
-    if (!pr.head.repo || pr.head.repo.id === repo.id) return;
+    const run = event.payload.workflow_run;
+
+    // GitHub emits `requested` for a fork pull request run the moment it is
+    // created and gated on "Approve and run". This fires for every run in the
+    // organization, so do the payload-only checks before touching anything.
+    if (!isApprovableRun(run, repo.id).approvable) return;
+    // Narrowed above, but the webhook types do not know that
+    if (!run.head_repository?.owner?.login || !run.triggering_actor) return;
 
     const allConfigs = await getValidatedConfig();
     const orgConfig = allConfigs.organizations.find((c) => c.organization === repo.owner.login);
     const vouched = orgConfig?.vouched_ci;
     if (!vouched?.length) return;
 
-    // For `synchronize` the sender is the authenticated user who pushed to the fork,
-    // which is the only identity that matters. Bail before touching the API for the
-    // vast majority of pushes that come from users who are not vouched.
-    if (!findVouchedUser(vouched, event.payload.sender)) return;
+    const tag = `vouched_ci ${repo.full_name} run ${run.id} ${run.head_sha}:`;
+    // The triggering actor is the authenticated user whose push created the run.
+    // This is only a cheap pre-filter for the vast majority of runs that come from
+    // users who are not vouched; the real gate is the per-commit verification below.
+    const vouchedUser = findVouchedUser(vouched, run.triggering_actor);
+    if (!vouchedUser) {
+      ctx.log(tag, 'not approving: triggering actor', run.triggering_actor.login, 'is not vouched');
+      return;
+    }
 
-    const tag = `vouched_ci ${repo.full_name}#${pr.number} ${headSha}:`;
     const octokit = await getVouchedCIOctokit(repo.owner.login);
     const coords = { owner: repo.owner.login, repo: repo.name };
+
+    // `workflow_run.pull_requests` is always empty for runs from forks, so find the
+    // pull request by its head instead and insist on exactly one match
+    const candidates = await octokit.paginate(octokit.pulls.list, {
+      ...coords,
+      state: 'open',
+      head: `${run.head_repository.owner.login}:${run.head_branch}`,
+      per_page: 100,
+    });
+    const match = matchPullRequestForRun(candidates, run);
+    if (!match.pullRequest) {
+      ctx.log(tag, 'not approving:', match.reason);
+      return;
+    }
+    const pr = match.pullRequest;
 
     const commits = await octokit.paginate(octokit.pulls.listCommits, {
       ...coords,
@@ -549,11 +577,15 @@ webhooks.on(
     });
     // Re-fetch the pull request *after* listing so a racing push is detected
     const freshPr = (await octokit.pulls.get({ ...coords, pull_number: pr.number })).data;
+    if (freshPr.head.repo?.id !== run.head_repository.id) {
+      ctx.log(tag, 'not approving: pull request head repository does not match the run');
+      return;
+    }
 
     const decision = evaluateVouchedCI({
       vouched,
-      sender: event.payload.sender,
-      headSha,
+      sender: run.triggering_actor,
+      headSha: run.head_sha,
       pullRequest: {
         headSha: freshPr.head.sha,
         headRepoId: freshPr.head.repo?.id ?? null,
@@ -567,58 +599,38 @@ webhooks.on(
       return;
     }
 
-    // Workflow runs are created asynchronously after the push, one per workflow
-    // file, so keep listing for the whole window rather than stopping at the
-    // first run that shows up
-    const result = await approvePendingRuns({
-      verifiedHeadSha: headSha,
-      listPendingRuns: async () =>
-        (
-          await octokit.actions.listWorkflowRunsForRepo({
-            ...coords,
-            head_sha: headSha,
-            status: 'action_required',
-            per_page: 100,
-          })
-        ).data.workflow_runs,
-      getCurrentHeadSha: async () =>
-        (
-          await octokit.pulls.get({ ...coords, pull_number: pr.number })
-        ).data.head.sha,
-      approveRun: async (run) => {
-        if (IS_DRY_RUN) {
-          ctx.log(tag, 'would approve run', run.id, `(${run.name})`);
-          return false;
-        }
-        try {
-          await octokit.actions.approveWorkflowRun({ ...coords, run_id: run.id });
-          ctx.log(tag, 'approved run', run.id, `(${run.name})`);
-          return true;
-        } catch (err) {
-          ctx.error(tag, 'failed to approve run', run.id, `(${run.name})`, err);
-          return false;
-        }
-      },
-      sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
-    });
-    if (result.abortReason) ctx.log(tag, 'stopped approving:', result.abortReason);
-    if (result.selectedRunIds.length === 0) {
-      ctx.log(tag, 'no workflow runs awaiting approval');
+    if (IS_DRY_RUN) {
+      ctx.log(tag, 'would approve run', run.id, `(${run.name})`);
+      return;
     }
-    const { approvedRunIds } = result;
-    if (approvedRunIds.length === 0) return;
+    try {
+      await octokit.actions.approveWorkflowRun({ ...coords, run_id: run.id });
+    } catch (err) {
+      // A maintainer may have clicked "Approve and run" in the meantime, or the run
+      // may have been cancelled; GitHub answers those with a 4xx and there is
+      // nothing left to do. Anything else (5xx, network) is a real failure.
+      const status = (err as { status?: unknown })?.status;
+      if (typeof status === 'number' && status >= 400 && status < 500) {
+        ctx.log(
+          tag,
+          `run could not be approved (HTTP ${status}), probably no longer pending:`,
+          err,
+        );
+        return;
+      }
+      throw err;
+    }
+    ctx.log(tag, 'approved run', run.id, `(${run.name})`);
 
-    const text = `Approved ${approvedRunIds.length} fork CI run(s) on pull request #${pr.number} vouched for by ${decision.vouchedUser.login}`;
+    const text = `Approved fork CI run "${run.name}" on pull request #${pr.number} vouched for by ${decision.vouchedUser.login}`;
     await MessageBuilder.create()
       .setEventPayload(event)
       .setNotificationContent(text)
       .addBlock(createMessageBlock(text))
-      .addRepositoryAndBlame(repo, event.payload.sender)
+      .addRepositoryAndBlame(repo, run.triggering_actor)
       .addSeverity('normal')
       .addContext(
-        `:white_check_mark: <${pr.html_url}|#${
-          pr.number
-        }> at \`${headSha}\`, run id(s): ${approvedRunIds.join(', ')}`,
+        `:white_check_mark: <${pr.html_url}|#${pr.number}> at \`${run.head_sha}\`, <${run.html_url}|run ${run.id}>`,
       )
       .send();
   }),

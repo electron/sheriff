@@ -25,9 +25,16 @@ export interface VouchedCICommit {
   };
 }
 
+/**
+ * The subset of a `workflow_run` webhook payload that the decision depends on.
+ * `head_repository` is typed as non-null by the webhook schema but the REST
+ * representation can be `null` once a fork is deleted, so it is guarded anyway.
+ */
 export interface VouchedCIWorkflowRun {
   id: number;
   head_sha: string;
+  head_branch: string | null;
+  head_repository: { id: number; owner: { login: string } | null } | null;
   event: string;
   status: string | null;
   conclusion: string | null;
@@ -36,12 +43,12 @@ export interface VouchedCIWorkflowRun {
 export interface VouchedCIInput {
   vouched: VouchedUser[];
   /**
-   * The `sender` of the `pull_request` webhook event, i.e. the authenticated
-   * user who pushed to the fork (for `synchronize`) or opened the pull request
+   * The `triggering_actor` of the `workflow_run` webhook event, i.e. the
+   * authenticated user whose push to the fork created the run
    */
   sender: { id: number; login: string };
   /**
-   * The head SHA from the webhook payload, the tree any approved run will execute
+   * The run's `head_sha` from the webhook payload, the tree the approved run will execute
    */
   headSha: string;
   /**
@@ -77,7 +84,7 @@ export const findVouchedUser = (
   vouched.find((v) => v.id === user.id && v.login.toLowerCase() === user.login.toLowerCase());
 
 /**
- * Decides whether the workflow runs for `headSha` may be approved. Approving a
+ * Decides whether a workflow run for `headSha` may be approved. Approving a
  * run executes the whole head tree, so every commit in the pull request range
  * must have been authored, committed and verified-signed by the vouched user
  * who pushed it. Pure: every input comes from GitHub, nothing is fetched.
@@ -129,106 +136,80 @@ export function evaluateVouchedCI(input: VouchedCIInput): VouchedCIDecision {
   return { approve: true, vouchedUser };
 }
 
-/**
- * Picks the runs that are safe to approve for a verified head SHA: only runs
- * awaiting approval, only `pull_request` runs (`pull_request_target` and friends
- * already run in the base repository context) and only runs pinned to the exact
- * tree that was verified.
- */
-export const selectApprovableRuns = <T extends VouchedCIWorkflowRun>(
-  runs: T[],
-  verifiedHeadSha: string,
-): T[] =>
-  runs.filter(
-    (run) =>
-      run.head_sha === verifiedHeadSha &&
-      run.event === 'pull_request' &&
-      (run.status === 'action_required' || run.conclusion === 'action_required'),
-  );
-
-/** How long to wait between two listings of the runs awaiting approval */
-export const VOUCHED_CI_POLL_INTERVAL_MS = 5_000;
-/** How many times to list the runs awaiting approval before giving up */
-export const VOUCHED_CI_MAX_POLLS = 12;
-/**
- * Once at least one run has been approved, stop early after this many
- * consecutive listings that turned up nothing new
- */
-export const VOUCHED_CI_QUIET_POLLS_BEFORE_EXIT = 2;
-
-export interface ApprovePendingRunsOptions<T extends VouchedCIWorkflowRun> {
-  /** The head SHA whose commits `evaluateVouchedCI` verified */
-  verifiedHeadSha: string;
-  /** Lists the runs currently awaiting approval for the verified head SHA */
-  listPendingRuns: () => Promise<T[]>;
-  /** Fetches the pull request's current head SHA, called before every approval batch */
-  getCurrentHeadSha: () => Promise<string>;
-  /** Approves a single run, resolves to `true` only if the run was actually approved */
-  approveRun: (run: T) => Promise<boolean>;
-  sleep: (ms: number) => Promise<void>;
-  maxPolls?: number;
-  pollIntervalMs?: number;
-}
-
-export interface ApprovePendingRunsResult {
-  /** Every run that `selectApprovableRuns` picked, whether or not approving it worked */
-  selectedRunIds: number[];
-  /** The runs `approveRun` reported as approved */
-  approvedRunIds: number[];
-  /** How many times the pending runs were listed */
-  polls: number;
-  /** Set when polling stopped because the pull request head moved */
-  abortReason?: string;
-}
+export type VouchedCIRunCheck = { approvable: true } | { approvable: false; reason: string };
 
 /**
- * Approves every approvable run that shows up for the verified head SHA within
- * the polling window. Each workflow file gets its own run and GitHub creates
- * them independently and asynchronously after the push, so a single listing
- * (or stopping at the first listing with a run in it) can miss runs. Each run
- * is passed to `approveRun` at most once. The pull request head is re-fetched
- * before every approval batch so that a racing push aborts approval. Pure apart
- * from the injected callbacks.
+ * Cheap, payload-only checks for a `workflow_run` `requested` event: is this a
+ * run that `vouched_ci` could ever approve? Only `pull_request` runs
+ * (`pull_request_target` and friends already run in the base repository
+ * context), only runs GitHub gated on approval (reported as `completed` /
+ * `action_required` in the webhook payload) and only runs from a fork. This
+ * event fires for every run in the organization, so it runs before any I/O.
  */
-export async function approvePendingRuns<T extends VouchedCIWorkflowRun>(
-  options: ApprovePendingRunsOptions<T>,
-): Promise<ApprovePendingRunsResult> {
-  const { verifiedHeadSha, listPendingRuns, getCurrentHeadSha, approveRun, sleep } = options;
-  const maxPolls = options.maxPolls ?? VOUCHED_CI_MAX_POLLS;
-  const pollIntervalMs = options.pollIntervalMs ?? VOUCHED_CI_POLL_INTERVAL_MS;
-
-  const selectedRunIds = new Set<number>();
-  const approvedRunIds: number[] = [];
-  let polls = 0;
-  let quietPolls = 0;
-
-  while (polls < maxPolls) {
-    if (polls > 0) await sleep(pollIntervalMs);
-    polls++;
-
-    const newRuns = selectApprovableRuns(await listPendingRuns(), verifiedHeadSha).filter(
-      (run) => !selectedRunIds.has(run.id),
-    );
-    if (newRuns.length === 0) {
-      if (selectedRunIds.size > 0 && ++quietPolls >= VOUCHED_CI_QUIET_POLLS_BEFORE_EXIT) break;
-      continue;
-    }
-    quietPolls = 0;
-
-    const currentHeadSha = await getCurrentHeadSha();
-    if (currentHeadSha !== verifiedHeadSha) {
-      return {
-        selectedRunIds: [...selectedRunIds],
-        approvedRunIds,
-        polls,
-        abortReason: `head moved from ${verifiedHeadSha} to ${currentHeadSha}`,
-      };
-    }
-    for (const run of newRuns) {
-      selectedRunIds.add(run.id);
-      if (await approveRun(run)) approvedRunIds.push(run.id);
-    }
+export function isApprovableRun(run: VouchedCIWorkflowRun, baseRepoId: number): VouchedCIRunCheck {
+  if (run.event !== 'pull_request') {
+    return { approvable: false, reason: `run event is ${run.event}, not pull_request` };
   }
+  if (run.conclusion !== 'action_required' && run.status !== 'action_required') {
+    return {
+      approvable: false,
+      reason: `run is not awaiting approval (${run.status} / ${run.conclusion})`,
+    };
+  }
+  if (!run.head_repository) return { approvable: false, reason: 'run has no head repository' };
+  if (run.head_repository.id === baseRepoId) {
+    return { approvable: false, reason: 'run is not from a fork' };
+  }
+  if (!run.head_repository.owner?.login) {
+    return { approvable: false, reason: 'run head repository has no owner' };
+  }
+  if (!run.head_branch) return { approvable: false, reason: 'run has no head branch' };
+  return { approvable: true };
+}
 
-  return { selectedRunIds: [...selectedRunIds], approvedRunIds, polls };
+export interface VouchedCIPullRequest {
+  number: number;
+  head: {
+    sha: string;
+    repo: { id: number } | null;
+  };
+}
+
+export type VouchedCIPullRequestMatch<T extends VouchedCIPullRequest> =
+  | { pullRequest: T }
+  | { pullRequest: null; reason: string };
+
+/**
+ * Picks the pull request a fork run belongs to. `workflow_run.pull_requests` is
+ * empty for runs from forks, so the candidates come from listing the open pull
+ * requests for the run's `owner:branch` head; a candidate only counts if it is
+ * pinned to the exact tree the run will execute *and* comes from the run's head
+ * repository (a fork of a fork can reuse the owner login of a deleted fork).
+ * Exactly one pull request must match: with two the run cannot be attributed.
+ */
+export function matchPullRequestForRun<T extends VouchedCIPullRequest>(
+  pullRequests: T[],
+  run: Pick<VouchedCIWorkflowRun, 'head_sha' | 'head_repository'>,
+): VouchedCIPullRequestMatch<T> {
+  const matches = pullRequests.filter(
+    (pr) =>
+      pr.head.sha === run.head_sha &&
+      run.head_repository !== null &&
+      pr.head.repo?.id === run.head_repository.id,
+  );
+  if (matches.length === 1) return { pullRequest: matches[0] };
+  if (matches.length === 0) {
+    return {
+      pullRequest: null,
+      reason: `no open pull request has head ${run.head_sha} from repository ${
+        run.head_repository?.id ?? 'unknown'
+      } (${pullRequests.length} candidate(s))`,
+    };
+  }
+  return {
+    pullRequest: null,
+    reason: `${matches.length} open pull requests (${matches
+      .map((pr) => `#${pr.number}`)
+      .join(', ')}) share head ${run.head_sha}`,
+  };
 }
