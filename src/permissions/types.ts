@@ -98,6 +98,16 @@ export interface TeamConfig {
   slack?: string | true;
 }
 
+/**
+ * A GitHub user pinned by numeric id. The id is the identity (logins can be
+ * reused after a rename or deletion); the login is cross-checked so a typo in
+ * the id can not vouch for an unrelated account.
+ */
+export interface VouchedUser {
+  login: string;
+  id: number;
+}
+
 export interface OrganizationConfig {
   organization: string;
   repository_defaults: RepoSettings;
@@ -105,6 +115,11 @@ export interface OrganizationConfig {
   repositories: RepositoryConfig[];
   common_rulesets?: Ruleset[];
   customProperties?: CustomProperty[];
+  /**
+   * Users whose own verified-signed commits, pushed by themselves to a fork
+   * pull request, get their GitHub Actions runs approved automatically
+   */
+  'vouched-ci'?: VouchedUser[];
 }
 
 export interface EnterpriseConfig {

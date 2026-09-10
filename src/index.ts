@@ -17,7 +17,7 @@ import {
   createMarkdownBlock,
   PermissionEnforcementAction,
 } from './MessageBuilder.js';
-import { getOctokit } from './octokit.js';
+import { getOctokit, getVouchedCIOctokit } from './octokit.js';
 import {
   GITHUB_WEBHOOK_SECRET,
   PERMISSIONS_FILE_ORG,
@@ -35,6 +35,7 @@ import {
 } from './permissions/level-converters.js';
 import { SheriffAccessLevel } from './permissions/types.js';
 import { queueDryRun } from './dry-run-q.js';
+import { evaluateVouchedCI, findVouchedUser, selectApprovableRuns } from './vouched-ci.js';
 
 const webhooks = new WebhooksApi({
   secret: GITHUB_WEBHOOK_SECRET,
@@ -515,6 +516,103 @@ webhooks.on(
 
       await queueDryRun(octokit, mergeCommitSha, event.payload.pull_request.head.sha);
     }
+  }),
+);
+
+webhooks.on(
+  ['pull_request.opened', 'pull_request.synchronize', 'pull_request.reopened'],
+  hook(async (event, ctx) => {
+    const repo = event.payload.repository;
+    const pr = event.payload.pull_request;
+    const headSha = pr.head.sha;
+    // Pull requests from the repository itself never need approval
+    if (!pr.head.repo || pr.head.repo.id === repo.id) return;
+
+    const allConfigs = await getValidatedConfig();
+    const orgConfig = allConfigs.organizations.find((c) => c.organization === repo.owner.login);
+    const vouched = orgConfig?.['vouched-ci'];
+    if (!vouched?.length) return;
+
+    // For `synchronize` the sender is the authenticated user who pushed to the fork,
+    // which is the only identity that matters. Bail before touching the API for the
+    // vast majority of pushes that come from users who are not vouched.
+    if (!findVouchedUser(vouched, event.payload.sender)) return;
+
+    const tag = `vouched-ci ${repo.full_name}#${pr.number} ${headSha}:`;
+    const octokit = await getVouchedCIOctokit(repo.owner.login);
+    const coords = { owner: repo.owner.login, repo: repo.name };
+
+    const listPendingRuns = async () =>
+      (
+        await octokit.actions.listWorkflowRunsForRepo({
+          ...coords,
+          head_sha: headSha,
+          status: 'action_required',
+          per_page: 100,
+        })
+      ).data.workflow_runs;
+
+    // Workflow runs are created asynchronously after the push, give them a moment to appear
+    let pendingRuns = await listPendingRuns();
+    for (let attempt = 1; attempt < 6 && pendingRuns.length === 0; attempt++) {
+      await new Promise((r) => setTimeout(r, 5000));
+      pendingRuns = await listPendingRuns();
+    }
+    if (pendingRuns.length === 0) {
+      ctx.log(tag, 'no workflow runs awaiting approval');
+      return;
+    }
+
+    const commits = await octokit.paginate(octokit.pulls.listCommits, {
+      ...coords,
+      pull_number: pr.number,
+      per_page: 100,
+    });
+    // Re-fetch the pull request *after* listing so a racing push is detected
+    const freshPr = (await octokit.pulls.get({ ...coords, pull_number: pr.number })).data;
+
+    const decision = evaluateVouchedCI({
+      vouched,
+      sender: event.payload.sender,
+      headSha,
+      pullRequest: {
+        headSha: freshPr.head.sha,
+        headRepoId: freshPr.head.repo?.id ?? null,
+        baseRepoId: freshPr.base.repo.id,
+        commitCount: freshPr.commits,
+      },
+      commits,
+    });
+    if (!decision.approve) {
+      ctx.log(tag, 'not approving:', decision.reason);
+      return;
+    }
+
+    const approvedRunIds: number[] = [];
+    for (const run of selectApprovableRuns(pendingRuns, headSha)) {
+      try {
+        await octokit.actions.approveWorkflowRun({ ...coords, run_id: run.id });
+        approvedRunIds.push(run.id);
+        ctx.log(tag, 'approved run', run.id, `(${run.name})`);
+      } catch (err) {
+        ctx.error(tag, 'failed to approve run', run.id, `(${run.name})`, err);
+      }
+    }
+    if (approvedRunIds.length === 0) return;
+
+    const text = `Approved ${approvedRunIds.length} fork CI run(s) on pull request #${pr.number} vouched for by ${decision.vouchedUser.login}`;
+    await MessageBuilder.create()
+      .setEventPayload(event)
+      .setNotificationContent(text)
+      .addBlock(createMessageBlock(text))
+      .addRepositoryAndBlame(repo, event.payload.sender)
+      .addSeverity('normal')
+      .addContext(
+        `:white_check_mark: <${pr.html_url}|#${
+          pr.number
+        }> at \`${headSha}\`, run id(s): ${approvedRunIds.join(', ')}`,
+      )
+      .send();
   }),
 );
 

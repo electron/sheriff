@@ -59,6 +59,8 @@ metadata:read
 
 Repo:
 members:write
+actions:write        # only if you use `vouched-ci`
+pull_requests:read   # only if you use `vouched-ci`
 ```
 
 Once created, you can generate and download a Private Key for the app, and supply it to Sheriff.
@@ -241,7 +243,46 @@ common_rulesets:
   # Same structure as the object in `repositories[name].rulesets`
   # Used to deduplicate rulesets that you want to apply to multiple repos
   - <object>
+# Optional, see "Vouched CI" below. Users are pinned by numeric GitHub user id,
+# the login is cross-checked so a typo in the id can not vouch for someone else
+vouched-ci:
+  - login: <gh_username>
+    id: <gh_user_id>
 ```
+
+#### Vouched CI
+
+GitHub can require a maintainer to approve GitHub Actions runs for pull requests from forks
+(Sheriff's `forks_need_actions_approval` repository setting turns that on for all external
+contributors). The `vouched-ci`
+list lets Sheriff approve those runs automatically for a small set of trusted people who are not
+collaborators on the repository, for example release engineers who work out of forks.
+
+Sheriff listens to `pull_request` `opened` / `synchronize` / `reopened` events and approves the
+runs awaiting approval for the pull request's head commit only when **all** of the following hold:
+
+* The user who pushed (the event `sender`) is in `vouched-ci` with a matching `id` and `login`.
+* The pull request comes from a fork and has at most 250 commits.
+* Every commit in the pull request (not just the newest one) was authored **and** committed by that
+  same user, and GitHub reports its signature as `verified` with reason `valid`, i.e. it was signed
+  with a GPG/SSH/S-MIME key registered on that user's account.
+* The pull request head has not changed while Sheriff was checking.
+
+If any check fails Sheriff does nothing and logs why. Each new push creates new runs and gets its
+own decision; Sheriff never approves "the pull request", only individual runs pinned to the commit
+it verified. Every approval is posted to Slack.
+
+To be vouched, you must sign every commit you push with a key on your GitHub account (commits made
+through the GitHub web UI are signed by GitHub, not by you, and are not accepted), push your own
+commits yourself (nobody else's, including "apply suggestion" or cherry-picked patches from other
+people), and rebase rather than merge branches other than the pull request's base into your branch.
+Your numeric user id is available at `https://api.github.com/users/<login>`.
+
+Vouched users can run arbitrary code in your fork pull request CI, treat the list like write access
+to the repository's Actions runners. Using this feature requires the GitHub App to have the
+`actions:write` and `pull_requests:read` repository permissions in addition to the ones listed
+above; the org-wide webhook already delivers `pull_request` events when configured to send
+everything.
 
 #### Generating your initial configuration
 

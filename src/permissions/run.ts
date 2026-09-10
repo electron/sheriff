@@ -271,6 +271,14 @@ const validateConfigFast = async (config: EnterpriseConfig): Promise<EnterpriseC
             })
             .required(),
           common_rulesets: Joi.array().items(rulesetValidator).min(1).optional(),
+          'vouched-ci': Joi.array()
+            .items(
+              Joi.object({
+                login: Joi.string().min(1).required(),
+                id: Joi.number().integer().min(1).required(),
+              }),
+            )
+            .optional(),
           customProperties: Joi.array()
             .items(
               Joi.object({
@@ -368,6 +376,19 @@ const validateConfigFast = async (config: EnterpriseConfig): Promise<EnterpriseC
         );
       }
       seenRepos.add(repo.name);
+    }
+
+    const seenVouchedIds = new Set<number>();
+    const seenVouchedLogins = new Set<string>();
+    for (const user of orgConfig['vouched-ci'] || []) {
+      const login = user.login.toLowerCase();
+      if (seenVouchedIds.has(user.id) || seenVouchedLogins.has(login)) {
+        throw new Error(
+          `User "${user.login}" (${user.id}) appears multiple times in the vouched-ci list for "${orgConfig.organization}", it should only appear once`,
+        );
+      }
+      seenVouchedIds.add(user.id);
+      seenVouchedLogins.add(login);
     }
 
     if (orgConfig.customProperties?.length) {
