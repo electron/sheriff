@@ -8,6 +8,7 @@
     "build": "tsc",
     "dev": "yarn start",
     "lint": "prettier --check \"src/**/*.{ts,tsx}\"",
+    "test": "tsc && node --test \"lib/**/*.test.js\"",
     "lint-staged": "lint-staged",
     "prepare": "husky install",
     "prettier:write": "prettier --write \"src/**/*.{ts,tsx}\"",

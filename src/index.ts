@@ -10,14 +10,14 @@ import {
   createNodeMiddleware,
   EmitterWebhookEvent,
 } from '@octokit/webhooks';
-import { isMainRepo, isSecurityAdvisoryRepo, hook } from './helpers.js';
+import { isMainRepo, isSecurityAdvisoryRepo, hook, IS_DRY_RUN } from './helpers.js';
 import {
   MessageBuilder,
   createMessageBlock,
   createMarkdownBlock,
   PermissionEnforcementAction,
 } from './MessageBuilder.js';
-import { getOctokit } from './octokit.js';
+import { getOctokit, getVouchedCIOctokit } from './octokit.js';
 import {
   GITHUB_WEBHOOK_SECRET,
   PERMISSIONS_FILE_ORG,
@@ -35,6 +35,12 @@ import {
 } from './permissions/level-converters.js';
 import { SheriffAccessLevel } from './permissions/types.js';
 import { queueDryRun } from './dry-run-q.js';
+import {
+  evaluateVouchedCI,
+  findVouchedUser,
+  isApprovableRun,
+  matchPullRequestForRun,
+} from './vouched-ci.js';
 
 const webhooks = new WebhooksApi({
   secret: GITHUB_WEBHOOK_SECRET,
@@ -515,6 +521,118 @@ webhooks.on(
 
       await queueDryRun(octokit, mergeCommitSha, event.payload.pull_request.head.sha);
     }
+  }),
+);
+
+webhooks.on(
+  'workflow_run.requested',
+  hook(async (event, ctx) => {
+    const repo = event.payload.repository;
+    const run = event.payload.workflow_run;
+
+    // GitHub emits `requested` for a fork pull request run the moment it is
+    // created and gated on "Approve and run". This fires for every run in the
+    // organization, so do the payload-only checks before touching anything.
+    if (!isApprovableRun(run, repo.id).approvable) return;
+    // Narrowed above, but the webhook types do not know that
+    if (!run.head_repository?.owner?.login || !run.triggering_actor) return;
+
+    const allConfigs = await getValidatedConfig();
+    const orgConfig = allConfigs.organizations.find((c) => c.organization === repo.owner.login);
+    const vouched = orgConfig?.vouched_ci;
+    if (!vouched?.length) return;
+
+    const tag = `vouched_ci ${repo.full_name} run ${run.id} ${run.head_sha}:`;
+    // The triggering actor is the authenticated user whose push created the run.
+    // This is only a cheap pre-filter for the vast majority of runs that come from
+    // users who are not vouched; the real gate is the per-commit verification below.
+    const vouchedUser = findVouchedUser(vouched, run.triggering_actor);
+    if (!vouchedUser) {
+      ctx.log(tag, 'not approving: triggering actor', run.triggering_actor.login, 'is not vouched');
+      return;
+    }
+
+    const octokit = await getVouchedCIOctokit(repo.owner.login);
+    const coords = { owner: repo.owner.login, repo: repo.name };
+
+    // `workflow_run.pull_requests` is always empty for runs from forks, so find the
+    // pull request by its head instead and insist on exactly one match
+    const candidates = await octokit.paginate(octokit.pulls.list, {
+      ...coords,
+      state: 'open',
+      head: `${run.head_repository.owner.login}:${run.head_branch}`,
+      per_page: 100,
+    });
+    const match = matchPullRequestForRun(candidates, run);
+    if (!match.pullRequest) {
+      ctx.log(tag, 'not approving:', match.reason);
+      return;
+    }
+    const pr = match.pullRequest;
+
+    const commits = await octokit.paginate(octokit.pulls.listCommits, {
+      ...coords,
+      pull_number: pr.number,
+      per_page: 100,
+    });
+    // Re-fetch the pull request *after* listing so a racing push is detected
+    const freshPr = (await octokit.pulls.get({ ...coords, pull_number: pr.number })).data;
+    if (freshPr.head.repo?.id !== run.head_repository.id) {
+      ctx.log(tag, 'not approving: pull request head repository does not match the run');
+      return;
+    }
+
+    const decision = evaluateVouchedCI({
+      vouched,
+      sender: run.triggering_actor,
+      headSha: run.head_sha,
+      pullRequest: {
+        headSha: freshPr.head.sha,
+        headRepoId: freshPr.head.repo?.id ?? null,
+        baseRepoId: freshPr.base.repo.id,
+        commitCount: freshPr.commits,
+      },
+      commits,
+    });
+    if (!decision.approve) {
+      ctx.log(tag, 'not approving:', decision.reason);
+      return;
+    }
+
+    if (IS_DRY_RUN) {
+      ctx.log(tag, 'would approve run', run.id, `(${run.name})`);
+      return;
+    }
+    try {
+      await octokit.actions.approveWorkflowRun({ ...coords, run_id: run.id });
+    } catch (err) {
+      // A maintainer may have clicked "Approve and run" in the meantime, or the run
+      // may have been cancelled; GitHub answers those with a 4xx and there is
+      // nothing left to do. Anything else (5xx, network) is a real failure.
+      const status = (err as { status?: unknown })?.status;
+      if (typeof status === 'number' && status >= 400 && status < 500) {
+        ctx.log(
+          tag,
+          `run could not be approved (HTTP ${status}), probably no longer pending:`,
+          err,
+        );
+        return;
+      }
+      throw err;
+    }
+    ctx.log(tag, 'approved run', run.id, `(${run.name})`);
+
+    const text = `Approved fork CI run "${run.name}" on pull request #${pr.number} vouched for by ${decision.vouchedUser.login}`;
+    await MessageBuilder.create()
+      .setEventPayload(event)
+      .setNotificationContent(text)
+      .addBlock(createMessageBlock(text))
+      .addRepositoryAndBlame(repo, run.triggering_actor)
+      .addSeverity('normal')
+      .addContext(
+        `:white_check_mark: <${pr.html_url}|#${pr.number}> at \`${run.head_sha}\`, <${run.html_url}|run ${run.id}>`,
+      )
+      .send();
   }),
 );
 
