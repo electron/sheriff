@@ -145,3 +145,90 @@ export const selectApprovableRuns = <T extends VouchedCIWorkflowRun>(
       run.event === 'pull_request' &&
       (run.status === 'action_required' || run.conclusion === 'action_required'),
   );
+
+/** How long to wait between two listings of the runs awaiting approval */
+export const VOUCHED_CI_POLL_INTERVAL_MS = 5_000;
+/** How many times to list the runs awaiting approval before giving up */
+export const VOUCHED_CI_MAX_POLLS = 12;
+/**
+ * Once at least one run has been approved, stop early after this many
+ * consecutive listings that turned up nothing new
+ */
+export const VOUCHED_CI_QUIET_POLLS_BEFORE_EXIT = 2;
+
+export interface ApprovePendingRunsOptions<T extends VouchedCIWorkflowRun> {
+  /** The head SHA whose commits `evaluateVouchedCI` verified */
+  verifiedHeadSha: string;
+  /** Lists the runs currently awaiting approval for the verified head SHA */
+  listPendingRuns: () => Promise<T[]>;
+  /** Fetches the pull request's current head SHA, called before every approval batch */
+  getCurrentHeadSha: () => Promise<string>;
+  /** Approves a single run, resolves to `true` only if the run was actually approved */
+  approveRun: (run: T) => Promise<boolean>;
+  sleep: (ms: number) => Promise<void>;
+  maxPolls?: number;
+  pollIntervalMs?: number;
+}
+
+export interface ApprovePendingRunsResult {
+  /** Every run that `selectApprovableRuns` picked, whether or not approving it worked */
+  selectedRunIds: number[];
+  /** The runs `approveRun` reported as approved */
+  approvedRunIds: number[];
+  /** How many times the pending runs were listed */
+  polls: number;
+  /** Set when polling stopped because the pull request head moved */
+  abortReason?: string;
+}
+
+/**
+ * Approves every approvable run that shows up for the verified head SHA within
+ * the polling window. Each workflow file gets its own run and GitHub creates
+ * them independently and asynchronously after the push, so a single listing
+ * (or stopping at the first listing with a run in it) can miss runs. Each run
+ * is passed to `approveRun` at most once. The pull request head is re-fetched
+ * before every approval batch so that a racing push aborts approval. Pure apart
+ * from the injected callbacks.
+ */
+export async function approvePendingRuns<T extends VouchedCIWorkflowRun>(
+  options: ApprovePendingRunsOptions<T>,
+): Promise<ApprovePendingRunsResult> {
+  const { verifiedHeadSha, listPendingRuns, getCurrentHeadSha, approveRun, sleep } = options;
+  const maxPolls = options.maxPolls ?? VOUCHED_CI_MAX_POLLS;
+  const pollIntervalMs = options.pollIntervalMs ?? VOUCHED_CI_POLL_INTERVAL_MS;
+
+  const selectedRunIds = new Set<number>();
+  const approvedRunIds: number[] = [];
+  let polls = 0;
+  let quietPolls = 0;
+
+  while (polls < maxPolls) {
+    if (polls > 0) await sleep(pollIntervalMs);
+    polls++;
+
+    const newRuns = selectApprovableRuns(await listPendingRuns(), verifiedHeadSha).filter(
+      (run) => !selectedRunIds.has(run.id),
+    );
+    if (newRuns.length === 0) {
+      if (selectedRunIds.size > 0 && ++quietPolls >= VOUCHED_CI_QUIET_POLLS_BEFORE_EXIT) break;
+      continue;
+    }
+    quietPolls = 0;
+
+    const currentHeadSha = await getCurrentHeadSha();
+    if (currentHeadSha !== verifiedHeadSha) {
+      return {
+        selectedRunIds: [...selectedRunIds],
+        approvedRunIds,
+        polls,
+        abortReason: `head moved from ${verifiedHeadSha} to ${currentHeadSha}`,
+      };
+    }
+    for (const run of newRuns) {
+      selectedRunIds.add(run.id);
+      if (await approveRun(run)) approvedRunIds.push(run.id);
+    }
+  }
+
+  return { selectedRunIds: [...selectedRunIds], approvedRunIds, polls };
+}

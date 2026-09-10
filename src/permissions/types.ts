@@ -119,7 +119,7 @@ export interface OrganizationConfig {
    * Users whose own verified-signed commits, pushed by themselves to a fork
    * pull request, get their GitHub Actions runs approved automatically
    */
-  'vouched-ci'?: VouchedUser[];
+  vouched_ci?: VouchedUser[];
 }
 
 export interface EnterpriseConfig {

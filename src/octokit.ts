@@ -54,9 +54,9 @@ export async function getOctokit(org: string, forceReadOnly = false): Promise<Oc
 // the PR's commits needs "pull_requests: read"), neither of which the rest of
 // Sheriff uses. GitHub refuses to mint a token that requests a permission the
 // App has not been granted, so this lives on its own token to ensure a missing
-// App permission only breaks vouched-ci rather than every Sheriff API call.
+// App permission only breaks vouched_ci rather than every Sheriff API call.
 export async function getVouchedCIOctokit(org: string): Promise<Octokit> {
-  const mapKey = `vouched-ci/${org}`;
+  const mapKey = `vouched_ci/${org}`;
   if (!octokitMap.has(mapKey)) {
     const creds = appCredentialsFromString(SHERIFF_GITHUB_APP_CREDS!);
     const authOpts = await getAuthOptionsForOrg(org, creds, {

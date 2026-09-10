@@ -35,7 +35,7 @@ import {
 } from './permissions/level-converters.js';
 import { SheriffAccessLevel } from './permissions/types.js';
 import { queueDryRun } from './dry-run-q.js';
-import { evaluateVouchedCI, findVouchedUser, selectApprovableRuns } from './vouched-ci.js';
+import { approvePendingRuns, evaluateVouchedCI, findVouchedUser } from './vouched-ci.js';
 
 const webhooks = new WebhooksApi({
   secret: GITHUB_WEBHOOK_SECRET,
@@ -530,7 +530,7 @@ webhooks.on(
 
     const allConfigs = await getValidatedConfig();
     const orgConfig = allConfigs.organizations.find((c) => c.organization === repo.owner.login);
-    const vouched = orgConfig?.['vouched-ci'];
+    const vouched = orgConfig?.vouched_ci;
     if (!vouched?.length) return;
 
     // For `synchronize` the sender is the authenticated user who pushed to the fork,
@@ -538,30 +538,9 @@ webhooks.on(
     // vast majority of pushes that come from users who are not vouched.
     if (!findVouchedUser(vouched, event.payload.sender)) return;
 
-    const tag = `vouched-ci ${repo.full_name}#${pr.number} ${headSha}:`;
+    const tag = `vouched_ci ${repo.full_name}#${pr.number} ${headSha}:`;
     const octokit = await getVouchedCIOctokit(repo.owner.login);
     const coords = { owner: repo.owner.login, repo: repo.name };
-
-    const listPendingRuns = async () =>
-      (
-        await octokit.actions.listWorkflowRunsForRepo({
-          ...coords,
-          head_sha: headSha,
-          status: 'action_required',
-          per_page: 100,
-        })
-      ).data.workflow_runs;
-
-    // Workflow runs are created asynchronously after the push, give them a moment to appear
-    let pendingRuns = await listPendingRuns();
-    for (let attempt = 1; attempt < 6 && pendingRuns.length === 0; attempt++) {
-      await new Promise((r) => setTimeout(r, 5000));
-      pendingRuns = await listPendingRuns();
-    }
-    if (pendingRuns.length === 0) {
-      ctx.log(tag, 'no workflow runs awaiting approval');
-      return;
-    }
 
     const commits = await octokit.paginate(octokit.pulls.listCommits, {
       ...coords,
@@ -588,20 +567,45 @@ webhooks.on(
       return;
     }
 
-    const approvedRunIds: number[] = [];
-    for (const run of selectApprovableRuns(pendingRuns, headSha)) {
-      if (IS_DRY_RUN) {
-        ctx.log(tag, 'would approve run', run.id, `(${run.name})`);
-        continue;
-      }
-      try {
-        await octokit.actions.approveWorkflowRun({ ...coords, run_id: run.id });
-        approvedRunIds.push(run.id);
-        ctx.log(tag, 'approved run', run.id, `(${run.name})`);
-      } catch (err) {
-        ctx.error(tag, 'failed to approve run', run.id, `(${run.name})`, err);
-      }
+    // Workflow runs are created asynchronously after the push, one per workflow
+    // file, so keep listing for the whole window rather than stopping at the
+    // first run that shows up
+    const result = await approvePendingRuns({
+      verifiedHeadSha: headSha,
+      listPendingRuns: async () =>
+        (
+          await octokit.actions.listWorkflowRunsForRepo({
+            ...coords,
+            head_sha: headSha,
+            status: 'action_required',
+            per_page: 100,
+          })
+        ).data.workflow_runs,
+      getCurrentHeadSha: async () =>
+        (
+          await octokit.pulls.get({ ...coords, pull_number: pr.number })
+        ).data.head.sha,
+      approveRun: async (run) => {
+        if (IS_DRY_RUN) {
+          ctx.log(tag, 'would approve run', run.id, `(${run.name})`);
+          return false;
+        }
+        try {
+          await octokit.actions.approveWorkflowRun({ ...coords, run_id: run.id });
+          ctx.log(tag, 'approved run', run.id, `(${run.name})`);
+          return true;
+        } catch (err) {
+          ctx.error(tag, 'failed to approve run', run.id, `(${run.name})`, err);
+          return false;
+        }
+      },
+      sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+    });
+    if (result.abortReason) ctx.log(tag, 'stopped approving:', result.abortReason);
+    if (result.selectedRunIds.length === 0) {
+      ctx.log(tag, 'no workflow runs awaiting approval');
     }
+    const { approvedRunIds } = result;
     if (approvedRunIds.length === 0) return;
 
     const text = `Approved ${approvedRunIds.length} fork CI run(s) on pull request #${pr.number} vouched for by ${decision.vouchedUser.login}`;

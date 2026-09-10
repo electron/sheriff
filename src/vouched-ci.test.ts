@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  approvePendingRuns,
   evaluateVouchedCI,
   findVouchedUser,
   selectApprovableRuns,
@@ -271,5 +272,89 @@ describe('selectApprovableRuns', () => {
 
   it('selects nothing when the head SHA does not match', () => {
     assert.deepEqual(selectApprovableRuns([run(1)], 'ccc'), []);
+  });
+});
+
+describe('approvePendingRuns', () => {
+  const run = (id: number, overrides: Record<string, unknown> = {}) => ({
+    id,
+    name: `workflow-${id}`,
+    head_sha: 'bbb',
+    event: 'pull_request',
+    status: 'action_required',
+    conclusion: null,
+    ...overrides,
+  });
+
+  const harness = (listings: ReturnType<typeof run>[][], headShas: string[] = []) => {
+    const approved: number[] = [];
+    const sleeps: number[] = [];
+    let headChecks = 0;
+    const options = {
+      verifiedHeadSha: 'bbb',
+      listPendingRuns: async () => listings.shift() ?? [],
+      getCurrentHeadSha: async () => headShas[headChecks++] ?? 'bbb',
+      approveRun: async (r: ReturnType<typeof run>) => {
+        approved.push(r.id);
+        return true;
+      },
+      sleep: async (ms: number) => {
+        sleeps.push(ms);
+      },
+      maxPolls: 6,
+      pollIntervalMs: 10,
+    };
+    return { options, approved, sleeps, headChecks: () => headChecks };
+  };
+
+  it('approves runs that only show up on a later poll, each exactly once', async () => {
+    const h = harness([[], [run(1)], [run(1), run(2)], [run(1), run(2)], [run(1), run(2)]]);
+    const result = await approvePendingRuns(h.options);
+    assert.deepEqual(h.approved, [1, 2]);
+    assert.deepEqual(result.approvedRunIds, [1, 2]);
+    assert.deepEqual(result.selectedRunIds, [1, 2]);
+    assert.equal(result.abortReason, undefined);
+  });
+
+  it('exits early only after approving something and then two quiet polls', async () => {
+    const h = harness([[run(1)], [], []]);
+    const result = await approvePendingRuns(h.options);
+    assert.equal(result.polls, 3);
+    assert.deepEqual(h.sleeps, [10, 10]);
+    assert.deepEqual(result.approvedRunIds, [1]);
+  });
+
+  it('keeps polling for the whole window when nothing shows up', async () => {
+    const h = harness([]);
+    const result = await approvePendingRuns(h.options);
+    assert.equal(result.polls, 6);
+    assert.equal(h.sleeps.length, 5);
+    assert.deepEqual(result.selectedRunIds, []);
+    assert.deepEqual(result.approvedRunIds, []);
+    assert.equal(h.headChecks(), 0);
+  });
+
+  it('re-checks the head before every approval batch and aborts when it moved', async () => {
+    const h = harness([[run(1)], [run(1), run(2)]], ['bbb', 'ccc']);
+    const result = await approvePendingRuns(h.options);
+    assert.deepEqual(h.approved, [1]);
+    assert.deepEqual(result.approvedRunIds, [1]);
+    assert.match(result.abortReason!, /head moved from bbb to ccc/);
+    assert.equal(h.headChecks(), 2);
+  });
+
+  it('ignores runs that selectApprovableRuns rejects', async () => {
+    const h = harness([[run(1, { head_sha: 'ccc' }), run(2, { event: 'pull_request_target' })]]);
+    const result = await approvePendingRuns(h.options);
+    assert.deepEqual(result.selectedRunIds, []);
+    assert.equal(h.headChecks(), 0);
+  });
+
+  it('does not retry a run that approveRun refused, nor report it as approved', async () => {
+    const h = harness([[run(1)], [run(1)], [run(1)]]);
+    h.options.approveRun = async () => false;
+    const result = await approvePendingRuns(h.options);
+    assert.deepEqual(result.selectedRunIds, [1]);
+    assert.deepEqual(result.approvedRunIds, []);
   });
 });

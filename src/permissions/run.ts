@@ -271,7 +271,7 @@ const validateConfigFast = async (config: EnterpriseConfig): Promise<EnterpriseC
             })
             .required(),
           common_rulesets: Joi.array().items(rulesetValidator).min(1).optional(),
-          'vouched-ci': Joi.array()
+          vouched_ci: Joi.array()
             .items(
               Joi.object({
                 login: Joi.string().min(1).required(),
@@ -380,11 +380,11 @@ const validateConfigFast = async (config: EnterpriseConfig): Promise<EnterpriseC
 
     const seenVouchedIds = new Set<number>();
     const seenVouchedLogins = new Set<string>();
-    for (const user of orgConfig['vouched-ci'] || []) {
+    for (const user of orgConfig.vouched_ci || []) {
       const login = user.login.toLowerCase();
       if (seenVouchedIds.has(user.id) || seenVouchedLogins.has(login)) {
         throw new Error(
-          `User "${user.login}" (${user.id}) appears multiple times in the vouched-ci list for "${orgConfig.organization}", it should only appear once`,
+          `User "${user.login}" (${user.id}) appears multiple times in the vouched_ci list for "${orgConfig.organization}", it should only appear once`,
         );
       }
       seenVouchedIds.add(user.id);
