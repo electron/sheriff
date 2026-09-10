@@ -61,7 +61,7 @@ export async function getVouchedCIOctokit(org: string): Promise<Octokit> {
     const creds = appCredentialsFromString(SHERIFF_GITHUB_APP_CREDS!);
     const authOpts = await getAuthOptionsForOrg(org, creds, {
       permissions: {
-        actions: 'write',
+        actions: IS_DRY_RUN ? 'read' : 'write',
         contents: 'read',
         metadata: 'read',
         pull_requests: 'read',

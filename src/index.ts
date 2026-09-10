@@ -10,7 +10,7 @@ import {
   createNodeMiddleware,
   EmitterWebhookEvent,
 } from '@octokit/webhooks';
-import { isMainRepo, isSecurityAdvisoryRepo, hook } from './helpers.js';
+import { isMainRepo, isSecurityAdvisoryRepo, hook, IS_DRY_RUN } from './helpers.js';
 import {
   MessageBuilder,
   createMessageBlock,
@@ -590,6 +590,10 @@ webhooks.on(
 
     const approvedRunIds: number[] = [];
     for (const run of selectApprovableRuns(pendingRuns, headSha)) {
+      if (IS_DRY_RUN) {
+        ctx.log(tag, 'would approve run', run.id, `(${run.name})`);
+        continue;
+      }
       try {
         await octokit.actions.approveWorkflowRun({ ...coords, run_id: run.id });
         approvedRunIds.push(run.id);
