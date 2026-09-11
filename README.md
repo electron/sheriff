@@ -59,6 +59,8 @@ metadata:read
 
 Repo:
 members:write
+actions:write        # only if you use `vouched_ci`
+pull_requests:read   # only if you use `vouched_ci`
 ```
 
 Once created, you can generate and download a Private Key for the app, and supply it to Sheriff.
@@ -241,7 +243,53 @@ common_rulesets:
   # Same structure as the object in `repositories[name].rulesets`
   # Used to deduplicate rulesets that you want to apply to multiple repos
   - <object>
+# Optional, see "Vouched CI" below. Users are pinned by numeric GitHub user id,
+# the login is cross-checked so a typo in the id can not vouch for someone else
+vouched_ci:
+  - login: <gh_username>
+    id: <gh_user_id>
 ```
+
+#### Vouched CI
+
+GitHub can require a maintainer to approve GitHub Actions runs for pull requests from forks
+(Sheriff's `forks_need_actions_approval` repository setting turns that on for all external
+contributors). The `vouched_ci`
+list lets Sheriff approve those runs automatically for a small set of trusted people who are not
+collaborators on the repository, for example release engineers who work out of forks.
+
+When a fork pull request run is created and gated on "Approve and run", GitHub emits a
+`workflow_run` `requested` event for it (reported as `completed` / `action_required`). Sheriff
+handles that event for `pull_request` runs from forks: because `workflow_run.pull_requests` is
+always empty for fork runs, it looks up the open pull requests for the run's `owner:branch` head
+and keeps the one whose head commit and head repository match the run. Sheriff then approves that
+single run only when **all** of the following hold:
+
+* The user whose push created the run (the run's `triggering_actor`) is in `vouched_ci` with a
+  matching `id` and `login`.
+* Exactly one open pull request is pinned to the run's head commit and head repository, it comes
+  from a fork, and it has at most 250 commits.
+* Every commit in the pull request (not just the newest one) was authored **and** committed by that
+  same user, and GitHub reports its signature as `verified` with reason `valid`, i.e. it was signed
+  with a GPG/SSH/S-MIME key registered on that user's account.
+* The pull request head still is the run's head commit after the commits were listed.
+
+If any check fails Sheriff does nothing and logs why. Each workflow file gets its own run and its
+own event, so every run is verified and approved individually; each new push creates new runs and
+gets its own decision. Sheriff never approves "the pull request", only individual runs pinned to
+the commit it verified. Every approval is posted to Slack.
+
+To be vouched, you must sign every commit you push with a key on your GitHub account (commits made
+through the GitHub web UI are signed by GitHub, not by you, and are not accepted), push your own
+commits yourself (nobody else's, including "apply suggestion" or cherry-picked patches from other
+people), and rebase rather than merge branches other than the pull request's base into your branch.
+Your numeric user id is available at `https://api.github.com/users/<login>`.
+
+Vouched users can run arbitrary code in your fork pull request CI, treat the list like write access
+to the repository's Actions runners. Using this feature requires the GitHub App to have the
+`actions:write` and `pull_requests:read` repository permissions in addition to the ones listed
+above; the org-wide webhook already delivers `workflow_run` events when configured to send
+everything.
 
 #### Generating your initial configuration
 

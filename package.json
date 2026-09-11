@@ -8,6 +8,7 @@
     "build": "tsc",
     "dev": "yarn start",
     "lint": "prettier --check \"src/**/*.{ts,tsx}\"",
+    "test": "tsc && node --test \"lib/**/*.test.js\"",
     "lint-staged": "lint-staged",
     "prepare": "husky install",
     "prettier:write": "prettier --write \"src/**/*.{ts,tsx}\"",
@@ -33,7 +34,7 @@
     "googleapis": "^109.0.1",
     "heroku-client": "^3.1.0",
     "joi": "^18.2.1",
-    "js-yaml": "^4.3.1",
+    "js-yaml": "^4.3.2",
     "ora": "^5.1.2",
     "queue": "^6.0.2"
   },
