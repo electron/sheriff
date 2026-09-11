@@ -61,7 +61,11 @@ export async function getVouchedCIOctokit(org: string): Promise<Octokit> {
     const creds = appCredentialsFromString(SHERIFF_GITHUB_APP_CREDS!);
     const authOpts = await getAuthOptionsForOrg(org, creds, {
       permissions: {
-        actions: IS_DRY_RUN ? 'read' : 'write',
+        // The webhook server is started without `--do-it-for-real-this-time`
+        // (that flag only exists for the permissions cron), so `IS_DRY_RUN` is
+        // always true here and must not narrow this token: approving runs is
+        // the whole point of the vouched_ci handler.
+        actions: 'write',
         contents: 'read',
         metadata: 'read',
         pull_requests: 'read',
