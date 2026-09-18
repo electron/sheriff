@@ -213,3 +213,37 @@ export function matchPullRequestForRun<T extends VouchedCIPullRequest>(
       .join(', ')}) share head ${run.head_sha}`,
   };
 }
+
+/**
+ * Resolves a numeric GitHub user id to the account's current login, or `null`
+ * when no account has that id (`GET /user/{account_id}` answers 404).
+ */
+export type VouchedUserLookup = (id: number) => Promise<{ login: string } | null>;
+
+/**
+ * Confirms that every `vouched_ci` entry's id really belongs to its login by
+ * resolving each id through GitHub (`GET /user/{account_id}`). The handler only
+ * ever vouches for a user whose id *and* login match the entry, so an entry
+ * that fails this check is dead config at best and a typo pointing at an
+ * unrelated account at worst; either way the permissions run should refuse it.
+ * Returns one message per bad entry, empty when every entry checks out.
+ */
+export async function verifyVouchedUsers(
+  vouched: VouchedUser[],
+  fetchUserById: VouchedUserLookup,
+): Promise<string[]> {
+  const problems: string[] = [];
+  for (const user of vouched) {
+    const resolved = await fetchUserById(user.id);
+    if (!resolved) {
+      problems.push(
+        `vouched_ci user "${user.login}" (${user.id}): no GitHub user has id ${user.id}`,
+      );
+    } else if (resolved.login.toLowerCase() !== user.login.toLowerCase()) {
+      problems.push(
+        `vouched_ci user "${user.login}" (${user.id}): id ${user.id} belongs to "${resolved.login}", not "${user.login}"`,
+      );
+    }
+  }
+  return problems;
+}

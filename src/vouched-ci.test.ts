@@ -6,6 +6,7 @@ import {
   findVouchedUser,
   isApprovableRun,
   matchPullRequestForRun,
+  verifyVouchedUsers,
   MAX_PULL_REQUEST_COMMITS,
   VouchedCICommit,
   VouchedCIInput,
@@ -344,5 +345,51 @@ describe('matchPullRequestForRun', () => {
     assert.equal(matchPullRequestForRun([pr(1, 'bbb', 78)], run()).pullRequest, null);
     assert.equal(matchPullRequestForRun([pr(1, 'bbb', null)], run()).pullRequest, null);
     assert.equal(matchPullRequestForRun([pr(1)], run({ head_repository: null })).pullRequest, null);
+  });
+});
+
+describe('verifyVouchedUsers', () => {
+  const lookup =
+    (users: Record<number, string>) =>
+    async (id: number): Promise<{ login: string } | null> =>
+      id in users ? { login: users[id] } : null;
+
+  it('accepts entries whose id resolves to the configured login', async () => {
+    const problems = await verifyVouchedUsers([alice, bob], lookup({ 1001: 'alice', 2002: 'bob' }));
+    assert.deepEqual(problems, []);
+  });
+
+  it('compares logins case-insensitively, like GitHub', async () => {
+    const problems = await verifyVouchedUsers([alice], lookup({ 1001: 'Alice' }));
+    assert.deepEqual(problems, []);
+  });
+
+  it('reports an entry whose id belongs to a different login', async () => {
+    const problems = await verifyVouchedUsers(
+      [alice, bob],
+      lookup({ 1001: 'mallory', 2002: 'bob' }),
+    );
+    assert.equal(problems.length, 1);
+    assert.match(problems[0], /"alice" \(1001\): id 1001 belongs to "mallory", not "alice"/);
+  });
+
+  it('reports an entry whose id does not exist', async () => {
+    const problems = await verifyVouchedUsers([alice], lookup({}));
+    assert.equal(problems.length, 1);
+    assert.match(problems[0], /"alice" \(1001\): no GitHub user has id 1001/);
+  });
+
+  it('reports every bad entry, not just the first', async () => {
+    const problems = await verifyVouchedUsers([alice, bob], lookup({ 2002: 'eve' }));
+    assert.equal(problems.length, 2);
+  });
+
+  it('propagates lookup failures other than a missing user', async () => {
+    await assert.rejects(
+      verifyVouchedUsers([alice], async () => {
+        throw new Error('boom');
+      }),
+      /boom/,
+    );
   });
 });

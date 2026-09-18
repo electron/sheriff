@@ -283,7 +283,9 @@ To be vouched, you must sign every commit you push with a key on your GitHub acc
 through the GitHub web UI are signed by GitHub, not by you, and are not accepted), push your own
 commits yourself (nobody else's, including "apply suggestion" or cherry-picked patches from other
 people), and rebase rather than merge branches other than the pull request's base into your branch.
-Your numeric user id is available at `https://api.github.com/users/<login>`.
+Your numeric user id is available at `https://api.github.com/users/<login>`. The permissions run
+(including the dry run) checks that each `vouched_ci` entry's `id` still resolves to its `login` on
+GitHub and fails otherwise, so a mistyped id or a renamed account is caught before it is merged.
 
 Vouched users can run arbitrary code in your fork pull request CI, treat the list like write access
 to the repository's Actions runners. Using this feature requires the GitHub App to have the
