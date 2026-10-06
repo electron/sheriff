@@ -46,7 +46,7 @@ __metadata:
     googleapis: "npm:^109.0.1"
     heroku-client: "npm:^3.1.0"
     husky: "npm:^8.0.0"
-    joi: "npm:^18.2.5"
+    joi: "npm:^18.2.9"
     js-yaml: "npm:^4.3.2"
     lint-staged: "npm:^17.4.1"
     ora: "npm:^5.1.2"
@@ -1596,9 +1596,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"joi@npm:^18.2.5":
-  version: 18.2.5
-  resolution: "joi@npm:18.2.5"
+"joi@npm:^18.2.9":
+  version: 18.2.9
+  resolution: "joi@npm:18.2.9"
   dependencies:
     "@hapi/address": "npm:^5.1.1"
     "@hapi/formula": "npm:^3.0.2"
@@ -1607,7 +1607,7 @@ __metadata:
     "@hapi/tlds": "npm:^1.1.1"
     "@hapi/topo": "npm:^6.0.2"
     "@standard-schema/spec": "npm:^1.1.0"
-  checksum: 10c0/3e4b13a21c14aed6b99bf8442c511f0feeed50c49783bcd8d0c08cd56bd90a93acae5dfbb269f14a44f85e329e621f3f770449b570c1a9dd38e1618921e3b698
+  checksum: 10c0/ac4934ea6aa4b3f9f6df28369d6ba9a4d585685822a171b93c0ce2e3c28d2dcf91bad1b3f34f6eb2f9d01165a5f84fe36eecb5a32b45bfa6538a7ce0895b2b4f
   languageName: node
   linkType: hard
 
