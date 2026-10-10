@@ -101,11 +101,15 @@ export class MessageBuilder {
         type: 'mrkdwn',
         text: `*${userType}: <${user.html_url}|${user.login}>*${extraInfo ? `\n${extraInfo}` : ''}`,
       },
-      accessory: {
-        type: 'image',
-        image_url: user.avatar_url,
-        alt_text: 'user',
-      },
+      ...(user.avatar_url
+        ? {
+            accessory: {
+              type: 'image',
+              image_url: user.avatar_url,
+              alt_text: 'user',
+            },
+          }
+        : {}),
     });
     return this;
   }
