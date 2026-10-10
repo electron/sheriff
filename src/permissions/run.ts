@@ -41,6 +41,7 @@ import {
 } from './pr-creation-cap.js';
 import { components } from '@octokit/openapi-types';
 import { isDeepStrictEqual } from 'util';
+import { verifyVouchedUsers } from '../vouched-ci.js';
 
 const queue = _queue as unknown as typeof _queue.default;
 
@@ -644,6 +645,35 @@ async function main() {
     const allTeams = await listAllTeams(config);
 
     const octokit = await getOctokit(config.organization);
+
+    // Every vouched_ci id must still resolve to its configured login. The
+    // webhook handler only vouches for a user whose id and login both match, so
+    // a stale or mistyped entry would silently never approve anything (or, if
+    // the id was meant for someone else, point at the wrong account). This
+    // needs GitHub, so it runs here rather than in validateConfigFast, and it
+    // fails the dry run too so the .permissions CI check goes red.
+    if (config.vouched_ci?.length) {
+      const problems = await verifyVouchedUsers(config.vouched_ci, async (id) => {
+        try {
+          return (await octokit.request('GET /user/{account_id}', { account_id: id })).data;
+        } catch (err) {
+          if ((err as { status?: unknown })?.status === 404) return null;
+          throw err;
+        }
+      });
+      if (problems.length) {
+        throw new Error(
+          `Invalid vouched_ci entries for "${config.organization}":\n${problems
+            .map((p) => `  - ${p}`)
+            .join('\n')}`,
+        );
+      }
+      console.info(
+        chalk.green('Verified'),
+        chalk.cyan(`${config.vouched_ci.length}`),
+        'vouched_ci user(s) resolve to their configured logins',
+      );
+    }
 
     // Check if the webhook is configured
     const HOOK_URL = SHERIFF_HOST_URL;
