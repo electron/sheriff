@@ -2,7 +2,7 @@
 
 <img height="124" width="124" align="right" src="design/logo.png">
 
-This bot, when deployed as a Heroku app and configured correctly, is capable of controlling permissions
+When deployed and configured correctly, this bot is capable of controlling permissions
 across GitHub, Slack, Heroku, and GSuite. It also actively monitors and alerts you to suspicious or unexpected
 activity on GitHub.
 
@@ -18,13 +18,10 @@ If you have an organization with a lot of repositories and/or org members using 
 
 ## Deployment
 
-We recommend deploying this as a Heroku app (this is how Electron has deployed it), although you can use another
-deployment strategy if you want. There are three core components to Sheriff, all of which need to be configured
+Deploy this anywhere you can run a Node script on a schedule. There are three core components to Sheriff, all of which need to be configured
 for it to work:
 
 ### The Webhook
-
-Deploy the webhook to Heroku with this button ➡️ [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
 
 To the run the webhook server, you need to start the main Sheriff entry point.
 
@@ -80,8 +77,6 @@ node lib/permissions/run.js --do-it-for-real-this-time
 ```
 
 If you leave off the `--do-it-for-real-this-time` Sheriff will "dry run" and tell you what it _would_ have done if you had let it run.
-
-On Heroku you use the "Heroku Scheduler" addon to configure this cron job.
 
 ### The Slack App
 
